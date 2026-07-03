@@ -1,0 +1,2940 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LeRobot Dataset Manager</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; color: #333; }
+
+    /* ── Layout ── */
+    .app-layout { display: flex; height: 100vh; overflow: hidden; }
+
+    /* ── Sidebar (left) ── */
+    .sidebar { width: 330px; min-width: 200px; flex-shrink: 0; background: #fff; border-right: 1px solid #e0e0e0; display: flex; flex-direction: column; overflow-y: auto; }
+    .sidebar-header { padding: 14px 16px 12px; border-bottom: 1px solid #e0e0e0; }
+    .sidebar-header h1 { font-size: 1.05rem; font-weight: 800; color: #1a73e8; }
+
+    .sidebar-section { padding: 12px 16px 8px; }
+    .sidebar-section-title { font-size: 0.68rem; font-weight: 700; color: #999; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; }
+
+    .ds-select-row { display: flex; gap: 6px; margin-bottom: 8px; }
+    .ds-select-row select { flex: 1; padding: 7px 10px; border-radius: 6px; border: 1px solid #d0d0d0; font-size: 0.85rem; min-width: 0; }
+    .ds-select-row button { padding: 6px; border: 1px solid #d0d0d0; border-radius: 6px; background: #fff; cursor: pointer; font-size: 0.85rem; color: #666; }
+    .ds-select-row button:hover { background: #f5f5f5; }
+
+    .ds-info-card { background: #f8f9fa; border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; font-size: 0.82rem; }
+    .ds-info-row { display: flex; justify-content: space-between; margin-bottom: 3px; align-items: flex-start; }
+    .ds-info-row .label { color: #888; flex-shrink: 0; }
+    .ds-info-row .value { font-weight: 600; color: #333; text-align: right; }
+
+    /* ── Resizer handles ── */
+    .resizer { width: 5px; cursor: col-resize; background: transparent; flex-shrink: 0; position: relative; z-index: 10; }
+    .resizer:hover, .resizer.active { background: #1a73e8; opacity: 0.3; }
+
+    /* ── Right panel (episodes) ── */
+    .right-panel { width: 230px; min-width: 160px; flex-shrink: 0; background: #fff; border-left: 1px solid #e0e0e0; display: flex; flex-direction: column; }
+    .right-panel.hidden { display: none; }
+    .episode-list-header { display: flex; align-items: center; justify-content: space-between; padding: 8px 14px; background: #f8f9fa; border-bottom: 1px solid #e0e0e0; }
+    .episode-list-header span { font-size: 0.78rem; font-weight: 700; color: #1a73e8; }
+    .episode-list { flex: 1; overflow-y: auto; }
+
+    /* ── Main content ── */
+    .main-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+    .main-body { flex: 1; overflow-y: auto; padding: 20px 24px; }
+
+    /* ── Buttons ── */
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 5px; padding: 6px 14px; border: none; border-radius: 6px; font-size: 0.82rem; font-weight: 600; cursor: pointer; color: #fff; background: #1a73e8; transition: all 0.15s; white-space: nowrap; }
+    .btn:hover { opacity: 0.85; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-sm { padding: 4px 10px; font-size: 0.78rem; }
+    .btn-xs { padding: 2px 8px; font-size: 0.72rem; border-radius: 4px; }
+    .btn-danger { background: #d93025; }
+    .btn-ghost { background: transparent; color: #555; border: 1px solid #d0d0d0; }
+    .btn-ghost:hover { background: #f5f5f5; }
+
+    /* ── Sidebar action button ── */
+    .sb-btn { display: flex; align-items: center; gap: 8px; width: 100%; padding: 7px 12px; border: none; border-radius: 6px; font-size: 0.8rem; font-weight: 600; cursor: pointer; color: #333; background: #f5f5f5; transition: background 0.12s; text-align: left; }
+    .sb-btn:hover { background: #e8f0fe; color: #1a73e8; }
+    .sb-btn .sb-icon { width: 18px; text-align: center; font-size: 0.9rem; flex-shrink: 0; }
+
+    /* ── Player card ── */
+    .player-card { background: #fff; border: 1px solid #d0d0d0; border-radius: 10px; padding: 16px; margin-bottom: 14px; }
+    .player-card h3 { font-size: 0.9rem; font-weight: 700; color: #1a73e8; margin-bottom: 12px; }
+
+    /* ── Stats ── */
+    .viz-stat { background: #f8f9fa; border-radius: 8px; padding: 10px 14px; min-width: 100px; }
+    .viz-stat-label { font-size: 0.7rem; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
+    .viz-stat-value { font-size: 1.1rem; font-weight: 700; color: #333; margin-top: 2px; }
+
+    /* ── Episode items ── */
+    .viz-ep-item { padding: 10px 14px; cursor: pointer; border-bottom: 1px solid #f0f0f0; font-size: 0.85rem; transition: background 0.15s; display: flex; align-items: flex-start; gap: 0; }
+    .viz-ep-item:hover { background: #f0f4ff; }
+    .viz-ep-item.active { background: #e8f0fe; color: #1a73e8; font-weight: 600; border-left: 3px solid #1a73e8; }
+    .viz-ep-item .ep-meta { font-size: 0.75rem; color: #999; margin-top: 2px; }
+
+    /* ── Form ── */
+    .form-label { font-size: 0.82rem; font-weight: 600; color: #555; margin-bottom: 4px; display: block; }
+    .form-input { width: 100%; padding: 8px 12px; border: 1px solid #d0d0d0; border-radius: 6px; font-size: 0.88rem; }
+
+    /* ── Modal ── */
+    .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; }
+    .modal-overlay.visible { display: flex; }
+    .modal { background: #fff; border-radius: 14px; padding: 28px; max-width: 600px; width: 90%; max-height: 85vh; overflow-y: auto; position: relative; box-shadow: 0 8px 32px rgba(0,0,0,0.2); }
+    .modal.modal-wide { max-width: 92vw; width: 92vw; }
+    .modal-close { position: absolute; top: 10px; right: 14px; background: none; border: none; font-size: 1.4rem; cursor: pointer; color: #999; }
+    .modal-close:hover { color: #333; }
+    .tg-tab { padding:8px 20px; font-size:0.88rem; font-weight:600; color:#888; background:none; border:none; cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-2px; transition:all 0.15s; }
+    .tg-tab:hover { color:#1a73e8; }
+    .tg-tab.active { color:#1a73e8; border-bottom-color:#1a73e8; }
+    .train-cmd { position:relative; background:#1e1e1e; color:#d4d4d4; font-family:'SF Mono','Menlo','Consolas',monospace; font-size:0.75rem; line-height:1.7; padding:16px 50px 16px 20px; border-radius:8px; white-space:pre; overflow-x:auto; margin:6px 0 14px 0; }
+
+    /* ── Import drop zone ── */
+    .import-drop-zone { border: 2px dashed #c0c0c0; border-radius: 12px; padding: 28px 20px; text-align: center; cursor: default; transition: all 0.2s; background: #fafafa; }
+    .import-drop-zone:hover { border-color: #90caf9; background: #f5f9ff; }
+    .import-drop-zone.drag-over { border-color: #00897b; background: #e0f2f1; border-style: solid; }
+    .import-drop-zone .drop-icon { font-size: 2.2rem; margin-bottom: 6px; opacity: 0.7; }
+    .import-drop-zone .drop-text { font-size: 0.95rem; font-weight: 700; color: #555; }
+    .import-drop-zone .drop-hint { font-size: 0.78rem; color: #aaa; margin-top: 4px; }
+    .import-drop-zone.drag-over .drop-text { color: #00897b; }
+    .import-drop-zone.drag-over .drop-hint { color: #00897b; }
+
+    /* ── Edit task options ── */
+    .edit-task-option { padding: 8px 12px; cursor: pointer; font-size: 0.84rem; border-bottom: 1px solid #f0f0f0; transition: background 0.12s; }
+    .edit-task-option:last-child { border-bottom: none; }
+    .edit-task-option:hover { background: #f0f4ff; }
+    .edit-task-option.active { background: #e8f0fe; color: #1a73e8; font-weight: 600; }
+
+    /* ── No dataset state ── */
+    .empty-state { text-align: center; padding: 60px 24px; color: #999; }
+    .empty-state .empty-icon { font-size: 3rem; margin-bottom: 12px; opacity: 0.5; }
+    .empty-state h3 { font-size: 1rem; color: #666; margin-bottom: 6px; }
+    .empty-state p { font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+
+<div class="app-layout">
+
+  <!-- ═══════════ Sidebar ═══════════ -->
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <h1>LeRobot Dataset Manager</h1>
+    </div>
+
+    <!-- Dataset selector -->
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">Dataset</div>
+      <div class="ds-select-row">
+        <select id="vizDatasetSelect">
+          <option value="">-- Select --</option>
+        </select>
+      </div>
+      <div id="vizDatasetStatus" style="font-size:0.75rem;color:#888;margin-bottom:2px"></div>
+      <div id="dsManageRow" style="display:none;display:flex;gap:4px;margin-top:4px;display:none">
+        <button class="btn-xs btn-ghost" onclick="vizRenameDataset()" style="flex:1">&#9998; Rename</button>
+        <button class="btn-xs btn-ghost" onclick="vizShowDeleteDataset()" style="flex:1;color:#d93025;border-color:#f5c6cb">&#128465; Delete</button>
+      </div>
+    </div>
+
+    <!-- Always-available actions -->
+    <div class="sidebar-section" style="padding-top:0">
+      <div style="display:flex;flex-direction:column;gap:3px">
+        <button class="sb-btn" onclick="vizShowConfig()"><span class="sb-icon">&#9881;</span> Settings</button>
+        <button class="sb-btn" onclick="vizShowImport()"><span class="sb-icon">&#128229;</span> Import Dataset</button>
+        <button class="sb-btn" onclick="vizShowDownloadHf()"><span class="sb-icon">&#9729;</span> Download from HF</button>
+        <button class="sb-btn" onclick="vizShowCombine()"><span class="sb-icon">&#128279;</span> Combine Datasets</button>
+      </div>
+    </div>
+
+    <!-- Dataset info (shown when selected) -->
+    <div id="dsInfoPanel" style="display:none">
+      <div style="border-top:1px solid #e0e0e0"></div>
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Info</div>
+        <div class="ds-info-card" id="dsInfoCard"></div>
+      </div>
+
+      <!-- Episodes list (in sidebar) -->
+      <div style="border-top:1px solid #e0e0e0"></div>
+      <div class="sidebar-section" style="padding-bottom:0;flex:1;display:flex;flex-direction:column;min-height:0">
+        <div class="episode-list-header" style="padding:4px 0 6px;background:none;border-bottom:none">
+          <span style="font-size:0.68rem;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:0.8px">Episodes</span>
+          <div style="display:flex;gap:4px">
+            <button class="btn-xs btn-ghost" id="vizSelectModeBtn" onclick="vizToggleSelectMode()">Select</button>
+          </div>
+        </div>
+        <div id="vizSelectActions" style="display:none;padding:0 0 6px;display:none;gap:4px">
+          <button class="btn-xs btn-ghost" id="vizSelectAllBtn" onclick="vizSelectAll()">Select All</button>
+          <button class="btn-xs btn-ghost" id="vizEditTaskBtn" onclick="vizEditTaskSelected()" style="display:none;color:#1a73e8;border-color:#90caf9">Edit Task</button>
+          <button class="btn-xs btn-danger" id="vizDeleteBtn" onclick="vizDeleteSelected()" style="display:none">Delete</button>
+        </div>
+        <div class="episode-list" id="vizEpisodeList" style="flex:1;overflow-y:auto"></div>
+      </div>
+    </div>
+
+    <select id="vizEpisodeSelect" style="display:none"></select>
+  </div>
+
+  <!-- Resizer: left -->
+  <div class="resizer" id="resizerLeft"></div>
+
+  <!-- ═══════════ Main ═══════════ -->
+  <div class="main-content">
+    <div class="main-body">
+
+      <!-- No dataset selected -->
+      <div id="vizEmptyState" class="empty-state">
+        <div class="empty-icon">&#128196;</div>
+        <h3>Select a dataset to visualize</h3>
+        <p>Choose from the sidebar, or use Import / Download to add one.</p>
+      </div>
+
+      <!-- Visualizer content -->
+      <div id="vizContent" style="display:none">
+        <!-- Info bar -->
+        <div id="vizInfoGrid" style="display:flex;gap:12px;flex-wrap:wrap;font-size:0.88rem;margin-bottom:16px"></div>
+
+        <!-- Player controls -->
+        <div class="player-card" style="margin-bottom:12px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
+            <button class="btn btn-sm" id="vizPlayBtn" onclick="vizTogglePlay()" style="background:#34a853;min-width:70px">Play</button>
+            <span id="vizTimeDisplay" style="font-size:0.95rem;font-weight:600;font-family:'SF Mono','Menlo',monospace;color:#333;min-width:50px">0.0s</span>
+            <span id="vizPhaseLabel" style="font-size:0.82rem;font-weight:600;padding:2px 10px;border-radius:10px;background:#e8eaed;color:#555;display:none"></span>
+            <span id="vizEpisodeInfo" style="font-size:0.82rem;color:#888"></span>
+          </div>
+          <input type="range" id="vizScrubber" min="0" max="100" value="0" step="0.1" style="width:100%" oninput="vizScrub(this.value)">
+          <div id="vizSegmentBar" style="position:relative;height:26px;border-radius:4px;overflow:visible;margin-top:4px;cursor:pointer;user-select:none"></div>
+          <div style="display:flex;align-items:center;margin-top:2px">
+            <span id="vizSegInfo" style="font-size:0.7rem;color:#999"></span>
+            <span style="font-size:0.65rem;color:#bbb;margin-left:auto">Click = change phase | Double-click = split | Drag handle = adjust</span>
+          </div>
+        </div>
+
+        <!-- Videos -->
+        <div id="vizVideos" style="display:flex;flex-direction:column;gap:12px;margin-bottom:12px"></div>
+
+        <!-- Joint chart -->
+        <div class="player-card">
+          <h3>Joint Trajectories</h3>
+          <div style="position:relative">
+            <canvas id="vizChart" style="width:100%;max-height:300px"></canvas>
+            <div id="vizChartCursor" style="position:absolute;top:0;bottom:0;width:2px;background:rgba(234,67,53,0.7);pointer-events:none;display:none"></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Resizer: right -->
+  <div class="resizer" id="resizerRight"></div>
+
+  <!-- ═══════════ Right panel: Actions ═══════════ -->
+  <div class="right-panel hidden" id="rightPanel">
+    <div class="episode-list-header">
+      <span>Actions</span>
+    </div>
+    <div style="padding:12px 14px;display:flex;flex-direction:column;gap:3px">
+      <div class="sidebar-section-title" style="margin-bottom:4px">Process</div>
+      <button class="sb-btn" onclick="vizShowAugment()"><span class="sb-icon">&#127912;</span> Augment</button>
+      <button class="sb-btn" onclick="vizRemoveIdle()"><span class="sb-icon">&#9986;</span> Remove Idle</button>
+      <button class="sb-btn" onclick="vizShowRandomSubset()"><span class="sb-icon">&#127922;</span> Random Sample</button>
+
+      <div class="sidebar-section-title" style="margin-top:10px;margin-bottom:4px">Export</div>
+      <button class="sb-btn" onclick="vizShowPushHf()"><span class="sb-icon">&#128640;</span> Push to HF</button>
+      <button class="sb-btn" onclick="vizShowTraining()"><span class="sb-icon">&#129504;</span> Training</button>
+      <button class="sb-btn" onclick="vizShowInference()"><span class="sb-icon">&#9654;</span> Inference</button>
+
+    </div>
+  </div>
+
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal"><button class="modal-close" onclick="closeModal()">&times;</button><div id="modalBody"></div></div>
+</div>
+
+<script>
+// ============================================================
+// Global state
+// ============================================================
+let vizCurrentDataset = null;
+let vizCurrentTask = null;
+let vizEpisodesData = [];
+let vizEpStart = 0;
+let vizEpEnd = 0;
+let vizFrameCount = 0;
+let vizPlaying = false;
+let vizAnimFrame = null;
+let vizChart = null;
+let vizSegments = null;
+let vizDragHandle = null;
+let vizDragMoved = false;
+let vizSelectMode = false;
+let vizAllDatasets = [];
+
+const VIZ_COLORS = ['#1a73e8','#ea4335','#34a853','#fbbc04','#9c27b0','#ff6d00'];
+const VIZ_JOINTS = ['shoulder_pan','shoulder_lift','elbow_flex','wrist_flex','wrist_roll','gripper'];
+const VIZ_PHASES_CYCLE = ['idle', 'movement'];
+const VIZ_PHASE = {
+  idle:     { color: '#f0f0f0', text: '#999' },
+  movement: { color: '#bbdefb', text: '#1565c0' },
+};
+
+// Chart plugin for segment backgrounds
+const vizSegmentPlugin = {
+  id: 'segmentBg',
+  beforeDraw(chart) {
+    if (!vizSegments) return;
+    const { ctx, chartArea, scales } = chart;
+    if (!chartArea) return;
+    const xScale = scales.x;
+    ctx.save();
+    vizSegments.forEach(seg => {
+      const st = VIZ_PHASE[seg.phase] || VIZ_PHASE.idle;
+      const x1 = xScale.getPixelForValue(seg.start);
+      const x2 = xScale.getPixelForValue(seg.end);
+      ctx.fillStyle = st.color + '66';
+      ctx.fillRect(x1, chartArea.top, x2 - x1, chartArea.bottom - chartArea.top);
+    });
+    ctx.restore();
+  }
+};
+
+// ============================================================
+// Resizable panels
+// ============================================================
+(function setupResizers() {
+  function initResizer(resizerId, target, side) {
+    const resizer = document.getElementById(resizerId);
+    if (!resizer) return;
+    let startX, startW;
+    resizer.addEventListener('mousedown', e => {
+      e.preventDefault();
+      const el = document.querySelector(target);
+      startX = e.clientX;
+      startW = el.offsetWidth;
+      resizer.classList.add('active');
+      const onMove = ev => {
+        const dx = ev.clientX - startX;
+        const newW = side === 'left' ? startW + dx : startW - dx;
+        el.style.width = Math.max(140, Math.min(500, newW)) + 'px';
+      };
+      const onUp = () => {
+        resizer.classList.remove('active');
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  }
+  initResizer('resizerLeft', '.sidebar', 'left');
+  initResizer('resizerRight', '.right-panel', 'right');
+})();
+
+// ============================================================
+// Editable tasks
+// ============================================================
+
+// ============================================================
+// Modal
+// ============================================================
+function closeModal() { document.getElementById('modalOverlay').classList.remove('visible'); document.querySelector('.modal').classList.remove('modal-wide'); }
+
+// ============================================================
+// Init
+// ============================================================
+(async function init() {
+  vizRefreshDatasets();
+})();
+
+// ============================================================
+// Dataset list
+// ============================================================
+async function vizRefreshDatasets() {
+  const sel = document.getElementById('vizDatasetSelect');
+  const st = document.getElementById('vizDatasetStatus');
+  st.textContent = 'Loading...';
+  try {
+    const r = await fetch('/api/datasets');
+    const d = await r.json();
+    sel.innerHTML = '<option value="">-- Select --</option>';
+    (d.datasets || []).forEach(ds => {
+      const o = document.createElement('option');
+      o.value = ds.name;
+      o.textContent = `${ds.name} (${ds.total_episodes} eps)`;
+      sel.appendChild(o);
+    });
+    st.textContent = `${(d.datasets || []).length} datasets`;
+  } catch(e) { st.textContent = 'Error: ' + e.message; }
+}
+
+// ============================================================
+// Dataset change handler
+// ============================================================
+document.getElementById('vizDatasetSelect').addEventListener('focus', () => vizRefreshDatasets());
+document.getElementById('vizDatasetSelect').addEventListener('change', async function() {
+  const name = this.value;
+  const dsInfoPanel = document.getElementById('dsInfoPanel');
+  const rightPanel = document.getElementById('rightPanel');
+  const vizContent = document.getElementById('vizContent');
+  const vizEmpty = document.getElementById('vizEmptyState');
+
+  if (!name) {
+    dsInfoPanel.style.display = 'none';
+    document.getElementById('dsManageRow').style.display = 'none';
+    document.getElementById('vizDatasetStatus').style.display = '';
+    rightPanel.classList.add('hidden');
+    document.getElementById('vizEpisodeList').innerHTML = '';
+    vizContent.style.display = 'none';
+    vizEmpty.style.display = '';
+    vizCurrentDataset = null;
+    return;
+  }
+  vizCurrentDataset = name;
+  vizEmpty.style.display = 'none';
+  document.getElementById('vizDatasetStatus').style.display = 'none';
+  rightPanel.classList.remove('hidden');
+
+  try {
+    const r = await fetch(`/api/datasets/${name}/info`);
+    const d = await r.json();
+    if (!d.ok) return;
+    const info = d.info;
+    const allTasks = d.tasks || [];
+    window._allTasks = allTasks;
+    const task = allTasks.length ? allTasks[0] : '-';
+    vizCurrentTask = task;
+
+    // Fetch episodes metadata
+    const epR = await fetch(`/api/datasets/${name}/episodes`);
+    const epD = await epR.json();
+    vizEpisodesData = epD.ok ? epD.episodes : [];
+
+    // Sidebar info card
+    const infoCard = document.getElementById('dsInfoCard');
+    infoCard.innerHTML = `
+      <div class="ds-info-row"><span class="label">Episodes</span><span class="value">${info.total_episodes}</span></div>
+      <div class="ds-info-row"><span class="label">Frames</span><span class="value">${info.total_frames}</span></div>
+      <div class="ds-info-row"><span class="label">FPS</span><span class="value">${info.fps}</span></div>
+      <div class="ds-info-row" style="margin-bottom:0"><span class="label">Robot</span><span class="value">${info.robot_type || '-'}</span></div>
+    `;
+    dsInfoPanel.style.display = '';
+    document.getElementById('dsManageRow').style.display = 'flex';
+
+    // Count episodes per task
+    const TASK_COLORS = ['#1a73e8','#34a853','#a142f4','#e8710a','#e8453c','#00bcd4','#e91e90','#f9ab00','#8bc34a','#795548'];
+    const taskCounts = {};
+    const taskColorMap = {};
+    let _ci = 0;
+    vizEpisodesData.forEach(ep => {
+      const ts = ep.tasks ? (Array.isArray(ep.tasks) ? ep.tasks : [ep.tasks]) : [];
+      ts.forEach(t => {
+        taskCounts[t] = (taskCounts[t] || 0) + 1;
+        if (!(t in taskColorMap)) taskColorMap[t] = TASK_COLORS[_ci++ % TASK_COLORS.length];
+      });
+    });
+
+    // Info grid (top of visualize tab)
+    const grid = document.getElementById('vizInfoGrid');
+    const taskKeys = Object.keys(taskCounts);
+    let taskHtml;
+    if (taskKeys.length <= 1) {
+      taskHtml = `<div class="viz-stat"><div class="viz-stat-label">Task</div><div class="viz-stat-value" style="font-size:0.88rem">${task}</div></div>`;
+    } else {
+      const lines = taskKeys.map(t => `<div style="display:flex;justify-content:space-between;gap:8px"><span style="color:${taskColorMap[t]};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t}</span><span style="flex-shrink:0;font-weight:600">${taskCounts[t]}</span></div>`).join('');
+      taskHtml = `<div class="viz-stat" style="flex:2;min-width:200px"><div class="viz-stat-label">Tasks (${taskKeys.length})</div><div class="viz-stat-value" style="font-size:0.82rem">${lines}<div style="border-top:1px solid #e0e0e0;margin-top:4px;padding-top:4px;display:flex;justify-content:space-between"><span>Total</span><span style="font-weight:700">${info.total_episodes}</span></div></div></div>`;
+    }
+    grid.innerHTML = [
+      ['Episodes', info.total_episodes],
+      ['Frames', info.total_frames],
+      ['FPS', info.fps],
+      ['Robot', info.robot_type],
+    ].map(([l,v]) => `<div class="viz-stat"><div class="viz-stat-label">${l}</div><div class="viz-stat-value">${v}</div></div>`).join('') + taskHtml;
+
+    // Build episode list
+    const epSel = document.getElementById('vizEpisodeSelect');
+    const epList = document.getElementById('vizEpisodeList');
+    epSel.innerHTML = '';
+    epList.innerHTML = '';
+    vizSelectMode = false;
+    const selModeBtn = document.getElementById('vizSelectModeBtn');
+    if (selModeBtn) { selModeBtn.textContent = 'Select'; selModeBtn.style.color = ''; }
+    const delBtn = document.getElementById('vizDeleteBtn');
+    if (delBtn) delBtn.style.display = 'none';
+
+    const vizTaskColorMap = {};
+    let _tci = 0;
+    vizEpisodesData.forEach(ep => {
+      const ts = ep && ep.tasks ? (Array.isArray(ep.tasks) ? ep.tasks : [ep.tasks]) : [];
+      ts.forEach(t => { if (!(t in vizTaskColorMap)) vizTaskColorMap[t] = TASK_COLORS[_tci++ % TASK_COLORS.length]; });
+    });
+
+    // Discover camera keys
+    let cameraKeys = [];
+    if (info.features) {
+      cameraKeys = Object.keys(info.features).filter(k => k.startsWith('observation.images.'));
+    }
+    if (!cameraKeys.length && vizEpisodesData.length) {
+      const ep0 = vizEpisodesData[0];
+      const seen = new Set();
+      for (const k of Object.keys(ep0)) {
+        const m = k.match(/^videos\/(observation\.images\.\w+)\//);
+        if (m && !seen.has(m[1])) { seen.add(m[1]); cameraKeys.push(m[1]); }
+      }
+    }
+    window._cameraKeys = cameraKeys;
+
+    // Check if this is an augmented dataset
+    window._augConfig = null;
+    try {
+      const acR = await fetch(`/api/datasets/${name}/augment-config`);
+      const acD = await acR.json();
+      if (acD.ok && acD.is_augmented) {
+        window._augConfig = acD.config;
+      }
+    } catch(e) {}
+    // Disable/enable Augment button
+    const augBtn = document.querySelector('.sb-btn[onclick="vizShowAugment()"]');
+    if (augBtn) {
+      if (window._augConfig) {
+        augBtn.disabled = true;
+        augBtn.style.opacity = '0.4';
+        augBtn.style.pointerEvents = 'none';
+        augBtn.title = 'This dataset was created by augmentation';
+      } else {
+        augBtn.disabled = false;
+        augBtn.style.opacity = '';
+        augBtn.style.pointerEvents = '';
+        augBtn.title = '';
+      }
+    }
+
+    for (let i = 0; i < info.total_episodes; i++) {
+      const ep = vizEpisodesData[i];
+      const len = ep ? ep.length : '?';
+      const firstCam = cameraKeys[0] || 'observation.images.top';
+      const dur = ep ? ((ep[`videos/${firstCam}/to_timestamp`] || 0) - (ep[`videos/${firstCam}/from_timestamp`] || 0)).toFixed(1) : '?';
+      const o = document.createElement('option');
+      o.value = i;
+      epSel.appendChild(o);
+
+      const div = document.createElement('div');
+      div.className = 'viz-ep-item' + (i === 0 ? ' active' : '');
+      div.dataset.ep = i;
+      const epTasks = ep && ep.tasks ? (Array.isArray(ep.tasks) ? ep.tasks : [ep.tasks]) : [];
+      const epTaskHtml = epTasks.map(t => { const c = vizTaskColorMap[t] || '#888'; return `<div style="font-size:0.68rem;color:${c};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t}</div>`; }).join('');
+      div.innerHTML = `<input type="checkbox" class="viz-ep-cb" data-ep="${i}" style="display:none;margin-right:6px;margin-top:2px" onclick="event.stopPropagation();vizUpdateDeleteBtn()"><div style="flex:1;min-width:0"><span>Ep ${i}</span><div class="ep-meta">${len}f &middot; ${dur}s</div>${epTaskHtml}</div>`;
+      div.addEventListener('click', () => {
+        if (vizSelectMode) {
+          const cb = div.querySelector('.viz-ep-cb');
+          cb.checked = !cb.checked;
+          vizUpdateDeleteBtn();
+        } else {
+          vizSelectEpisode(i);
+        }
+      });
+      epList.appendChild(div);
+    }
+
+    vizContent.style.display = '';
+    vizLoadEpisode();
+  } catch(e) { console.error(e); }
+});
+
+// ============================================================
+// Episode selection
+// ============================================================
+function vizSelectEpisode(idx) {
+  document.getElementById('vizEpisodeSelect').value = idx;
+  document.querySelectorAll('.viz-ep-item').forEach(el => {
+    el.classList.toggle('active', parseInt(el.dataset.ep) === idx);
+  });
+  vizLoadEpisode();
+}
+
+// ============================================================
+// Episode loading
+// ============================================================
+async function vizLoadEpisode() {
+  const ep = parseInt(document.getElementById('vizEpisodeSelect').value);
+  const name = vizCurrentDataset;
+  if (!name || isNaN(ep)) return;
+  const epMeta = vizEpisodesData[ep] || {};
+
+  vizStopPlay();
+
+  const cameraKeys = window._cameraKeys || ['observation.images.top'];
+  const firstCam = cameraKeys[0] || 'observation.images.top';
+  vizEpStart = epMeta[`videos/${firstCam}/from_timestamp`] ?? 0;
+  vizEpEnd = epMeta[`videos/${firstCam}/to_timestamp`] ?? 0;
+
+  // Check augment config for this episode
+  const augCompare = document.getElementById('vizAugCompare');
+  if (augCompare) augCompare.remove();
+  const cfg = window._augConfig;
+  let srcEpMeta = null;
+  let augEpInfo = null;
+  if (cfg && cfg.episodes) {
+    augEpInfo = cfg.episodes.find(e => e.new_ep === ep);
+    if (augEpInfo && !augEpInfo.is_original) {
+      try {
+        const srcR = await fetch(`/api/datasets/${cfg.source_dataset}/episodes`);
+        const srcD = await srcR.json();
+        if (srcD.ok && srcD.episodes) {
+          srcEpMeta = srcD.episodes.find(e => e.episode_index === augEpInfo.source_ep);
+        }
+      } catch(e) { console.warn('Could not load source episodes:', e); }
+    }
+  }
+
+  // Videos — show original side-by-side if augmented
+  const vids = document.getElementById('vizVideos');
+  vids.innerHTML = '';
+  vids.style.flexDirection = srcEpMeta ? 'column' : 'row';
+
+  cameraKeys.forEach(cam => {
+    const label = cam.split('.').pop();
+    const camKey = `videos/${cam}`;
+    const chunkIdx = epMeta[`${camKey}/chunk_index`] ?? 0;
+    const fileIdx = epMeta[`${camKey}/file_index`] ?? 0;
+    const chunk = String(chunkIdx).padStart(3, '0');
+    const file = String(fileIdx).padStart(3, '0');
+    const epStart = epMeta[`${camKey}/from_timestamp`] ?? vizEpStart;
+    const epEnd = epMeta[`${camKey}/to_timestamp`] ?? vizEpEnd;
+    const path = `/data/${name}/videos/${cam}/chunk-${chunk}/file-${file}.mp4`;
+
+    if (srcEpMeta) {
+      const ck = String(srcEpMeta[`${camKey}/chunk_index`] ?? 0).padStart(3, '0');
+      const fi = String(srcEpMeta[`${camKey}/file_index`] ?? 0).padStart(3, '0');
+      const srcPath = `/data/${cfg.source_dataset}/videos/${cam}/chunk-${ck}/file-${fi}.mp4`;
+      const srcFrom = srcEpMeta[`${camKey}/from_timestamp`] ?? 0;
+      vids.innerHTML += `
+        <div style="display:flex;gap:12px">
+          <div style="flex:1">
+            <div style="font-size:0.72rem;color:#888;margin-bottom:4px">${label} <span style="color:#34a853;font-weight:600">original</span> (ep ${augEpInfo.source_ep})</div>
+            <video muted preload="auto" style="width:100%;border-radius:8px;border:2px solid #34a853;background:#000" src="${srcPath}"
+              onloadedmetadata="this.currentTime=${srcFrom}"></video>
+          </div>
+          <div style="flex:1">
+            <div style="font-size:0.72rem;color:#888;margin-bottom:4px">${label} <span style="color:#7b1fa2;font-weight:600">augmented</span></div>
+            <video muted preload="auto" class="viz-video" data-ep-start="${epStart}" data-ep-end="${epEnd}" style="width:100%;border-radius:8px;border:2px solid #7b1fa2;background:#000" src="${path}"></video>
+          </div>
+        </div>`;
+    } else {
+      vids.innerHTML += `
+        <div style="flex:1;min-width:200px">
+          <div style="font-size:0.82rem;font-weight:600;color:#555;margin-bottom:4px">${label}</div>
+          <video muted preload="auto" class="viz-video" data-ep-start="${epStart}" data-ep-end="${epEnd}" style="width:100%;border-radius:8px;border:1px solid #e0e0e0;background:#000" src="${path}"></video>
+        </div>`;
+    }
+  });
+
+  // Seek videos to episode start
+  document.querySelectorAll('.viz-video').forEach(v => {
+    const startTime = parseFloat(v.dataset.epStart) || vizEpStart;
+    v.addEventListener('loadedmetadata', () => { v.currentTime = startTime; });
+  });
+
+  // Show augmentation params info
+  if (augEpInfo) {
+    const srcName = cfg.source_dataset;
+    const srcEp = augEpInfo.source_ep;
+    const isOrig = augEpInfo.is_original;
+
+    let paramHtml = '';
+    if (isOrig) {
+      paramHtml = '<span style="color:#34a853;font-weight:600">Original (no augmentation applied)</span>';
+    } else {
+      const parts = [];
+      if (augEpInfo.camera) {
+        const c = augEpInfo.camera;
+        const cp = [];
+        if (c.angle != null) cp.push(`rotation: ${Number(c.angle).toFixed(1)}°`);
+        if (c.tx != null) cp.push(`tx: ${Number(c.tx).toFixed(3)}`);
+        if (c.ty != null) cp.push(`ty: ${Number(c.ty).toFixed(3)}`);
+        if (c.scale != null) cp.push(`scale: ${Number(c.scale).toFixed(3)}`);
+        if (c.shear != null) cp.push(`shear: ${Number(c.shear).toFixed(3)}`);
+        if (c.persp) cp.push('perspective: applied');
+        if (cp.length) parts.push(`<b>Camera:</b> ${cp.join(', ')}`);
+      }
+      if (augEpInfo.light) {
+        const l = augEpInfo.light;
+        const lp = [];
+        if (l.brightness != null) lp.push(`brightness: ${Number(l.brightness).toFixed(2)}`);
+        if (l.contrast != null) lp.push(`contrast: ${Number(l.contrast).toFixed(2)}`);
+        if (l.saturation != null) lp.push(`saturation: ${Number(l.saturation).toFixed(2)}`);
+        if (l.hue != null) lp.push(`hue: ${l.hue}`);
+        if (l.noise_s != null) lp.push(`noise: σ${Number(l.noise_s).toFixed(1)}`);
+        if (l.blur_s != null) lp.push(`blur: σ${Number(l.blur_s).toFixed(1)}`);
+        if (l.shadow_a != null) lp.push(`shadow: α${Number(l.shadow_a).toFixed(2)} ${l.shadow_dir||''}`);
+        if (lp.length) parts.push(`<b>Light:</b> ${lp.join(', ')}`);
+      }
+      if (augEpInfo.robot) {
+        const r = augEpInfo.robot;
+        const rp = [];
+        if (r.trim != null) rp.push(`trim: ${r.trim}f`);
+        if (r.jitter_s != null) rp.push(`jitter: σ${Number(r.jitter_s).toFixed(2)}`);
+        if (r.joint_offset) rp.push('offset: applied');
+        if (rp.length) parts.push(`<b>Robot:</b> ${rp.join(', ')}`);
+      }
+      paramHtml = parts.length ? parts.join(' &nbsp;|&nbsp; ') : 'No augmentation params';
+    }
+
+    const compareDiv = document.createElement('div');
+    compareDiv.id = 'vizAugCompare';
+    compareDiv.innerHTML = `
+      <div style="background:#f5f0ff;border:1px solid #d1c4e9;border-radius:8px;padding:8px 14px;margin-bottom:10px">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span style="font-size:0.82rem;font-weight:600;color:#7b1fa2">
+            Augmented from ${srcName} ep ${srcEp}${isOrig ? ' (copy)' : ''}
+          </span>
+          <span style="font-size:0.72rem;color:#999">Mode: ${cfg.mode || 'random'} · Intensity: ${cfg.intensity || 3}/5</span>
+        </div>
+        <div style="font-size:0.73rem;color:#666;font-family:'SF Mono',monospace;margin-top:4px">${paramHtml}</div>
+      </div>`;
+    vids.parentNode.insertBefore(compareDiv, vids.nextSibling);
+  }
+
+  // Reset controls
+  document.getElementById('vizScrubber').value = 0;
+  document.getElementById('vizTimeDisplay').textContent = '0.0s';
+  document.getElementById('vizSegmentBar').innerHTML = '';
+  document.getElementById('vizPhaseLabel').style.display = 'none';
+  vizSegments = null;
+
+  // Load frame data
+  const epInfo = document.getElementById('vizEpisodeInfo');
+  epInfo.textContent = 'Loading frames...';
+  try {
+    const r = await fetch(`/api/datasets/${name}/frames/${ep}`);
+    const d = await r.json();
+    if (!d.ok || !d.frames.length) { epInfo.textContent = 'No frame data'; return; }
+    vizFrameCount = d.frames.length;
+    epInfo.textContent = `${vizFrameCount} frames, ${(vizEpEnd - vizEpStart).toFixed(1)}s`;
+    vizDrawChart(d.frames);
+  } catch(e) { epInfo.textContent = 'Error: ' + e.message; }
+}
+
+// ============================================================
+// Playback controls
+// ============================================================
+function vizTogglePlay() {
+  if (vizPlaying) {
+    vizStopPlay();
+  } else {
+    vizPlaying = true;
+    const btn = document.getElementById('vizPlayBtn');
+    btn.textContent = 'Pause';
+    btn.style.background = '#d93025';
+    document.querySelectorAll('.viz-video').forEach(v => v.play());
+    vizAnimFrame = requestAnimationFrame(vizUpdateLoop);
+  }
+}
+
+function vizStopPlay() {
+  vizPlaying = false;
+  const btn = document.getElementById('vizPlayBtn');
+  btn.textContent = 'Play';
+  btn.style.background = '#34a853';
+  document.querySelectorAll('.viz-video').forEach(v => v.pause());
+  if (vizAnimFrame) { cancelAnimationFrame(vizAnimFrame); vizAnimFrame = null; }
+}
+
+function vizUpdateLoop() {
+  if (!vizPlaying) return;
+  const videos = document.querySelectorAll('.viz-video');
+  if (!videos.length) return;
+  const v = videos[0];
+  const vStart = parseFloat(v.dataset.epStart) || vizEpStart;
+  const vEnd = parseFloat(v.dataset.epEnd) || vizEpEnd;
+  const vDuration = vEnd - vStart;
+  const elapsed = v.currentTime - vStart;
+  const pct = vDuration > 0 ? Math.min(100, Math.max(0, (elapsed / vDuration) * 100)) : 0;
+
+  const mainDuration = vizEpEnd - vizEpStart;
+  document.getElementById('vizScrubber').value = pct;
+  document.getElementById('vizTimeDisplay').textContent = ((pct / 100) * mainDuration).toFixed(1) + 's';
+  vizUpdateChartCursor(pct);
+  vizUpdatePhaseLabel(pct);
+
+  if (v.currentTime >= vEnd - 0.05) {
+    vizStopPlay();
+    return;
+  }
+  vizAnimFrame = requestAnimationFrame(vizUpdateLoop);
+}
+
+// ============================================================
+// Scrubber
+// ============================================================
+function vizScrub(pct) {
+  const duration = vizEpEnd - vizEpStart;
+  document.querySelectorAll('.viz-video').forEach(v => {
+    const vStart = parseFloat(v.dataset.epStart) || vizEpStart;
+    const vEnd = parseFloat(v.dataset.epEnd) || vizEpEnd;
+    v.currentTime = vStart + (pct / 100) * (vEnd - vStart);
+  });
+  document.getElementById('vizTimeDisplay').textContent = ((pct / 100) * duration).toFixed(1) + 's';
+  vizUpdateChartCursor(pct);
+  vizUpdatePhaseLabel(pct);
+}
+
+// ============================================================
+// Chart cursor
+// ============================================================
+function vizUpdateChartCursor(pct) {
+  const cursor = document.getElementById('vizChartCursor');
+  if (!vizChart || !cursor) return;
+  const area = vizChart.chartArea;
+  if (!area) { cursor.style.display = 'none'; return; }
+  const x = area.left + (pct / 100) * (area.right - area.left);
+  cursor.style.display = '';
+  cursor.style.left = x + 'px';
+  cursor.style.top = area.top + 'px';
+  cursor.style.height = (area.bottom - area.top) + 'px';
+}
+
+// ============================================================
+// Phase label
+// ============================================================
+function vizUpdatePhaseLabel(pct) {
+  const lbl = document.getElementById('vizPhaseLabel');
+  if (!vizSegments) { lbl.style.display = 'none'; return; }
+  const f = Math.round((pct / 100) * (vizFrameCount - 1));
+  const seg = vizSegments.find(s => f >= s.start && f <= s.end);
+  if (seg) {
+    const st = VIZ_PHASE[seg.phase] || VIZ_PHASE.idle;
+    lbl.textContent = seg.label;
+    lbl.style.background = st.color;
+    lbl.style.color = st.text;
+    lbl.style.display = '';
+  } else {
+    lbl.style.display = 'none';
+  }
+}
+
+// ============================================================
+// Auto-detect idle/movement segments
+// ============================================================
+function vizDetectSegments(frames) {
+  const n = frames.length;
+  if (n < 5) return [{ start: 0, end: n - 1, phase: 'movement', label: 'movement' }];
+
+  const smooth = (arr, hw) => arr.map((_, i) => {
+    let s = 0, c = 0;
+    for (let j = Math.max(0, i - hw); j <= Math.min(arr.length - 1, i + hw); j++) { s += arr[j]; c++; }
+    return s / c;
+  });
+
+  const actionLen = Array.isArray(frames[0].action) ? frames[0].action.length : 6;
+  const vel = frames.map((f, i) => {
+    if (i === 0) return 0;
+    let v = 0;
+    for (let j = 0; j < actionLen; j++) v += Math.abs(((f.action || [])[j] || 0) - ((frames[i - 1].action || [])[j] || 0));
+    return v;
+  });
+  const sv = smooth(vel, 5);
+
+  const sorted = [...sv].sort((a, b) => a - b);
+  const velThresh = Math.max(sorted[Math.floor(n * 0.85)] * 0.12, 0.3);
+
+  const labels = sv.map(v => v > velThresh ? 'movement' : 'idle');
+
+  const segs = [];
+  let segStart = 0;
+  for (let i = 1; i <= n; i++) {
+    if (i === n || labels[i] !== labels[segStart]) {
+      segs.push({ start: segStart, end: i - 1, phase: labels[segStart], label: labels[segStart] });
+      segStart = i;
+    }
+  }
+
+  for (let pass = 0; pass < 3; pass++) {
+    for (let i = segs.length - 1; i >= 0; i--) {
+      if (segs[i].end - segs[i].start < 4 && segs.length > 1) {
+        if (i > 0) {
+          segs[i - 1].end = segs[i].end;
+        } else {
+          segs[1].start = segs[0].start;
+        }
+        segs.splice(i, 1);
+      }
+    }
+  }
+
+  // Idle only at start/end — convert middle idle to movement
+  for (let i = 0; i < segs.length; i++) {
+    if (segs[i].phase === 'idle' && i > 0 && i < segs.length - 1) {
+      segs[i].phase = 'movement';
+      segs[i].label = 'movement';
+    }
+  }
+  // Merge consecutive same-phase segments
+  const merged = [segs[0]];
+  for (let i = 1; i < segs.length; i++) {
+    if (segs[i].phase === merged[merged.length - 1].phase) {
+      merged[merged.length - 1].end = segs[i].end;
+    } else {
+      merged.push(segs[i]);
+    }
+  }
+
+  return merged;
+}
+
+// ============================================================
+// Segments: load / save / render
+// ============================================================
+async function vizLoadSegments(name, ep) {
+  try {
+    const r = await fetch(`/api/datasets/${name}/segments/${ep}`);
+    const d = await r.json();
+    if (d.ok && d.segments && d.segments.length) return d.segments;
+  } catch(e) {}
+  return null;
+}
+
+async function vizSaveSegments() {
+  if (!vizCurrentDataset || !vizSegments) return;
+  const ep = parseInt(document.getElementById('vizEpisodeSelect').value);
+  if (isNaN(ep)) return;
+  try {
+    await fetch(`/api/datasets/${vizCurrentDataset}/segments/${ep}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ segments: vizSegments }),
+    });
+    document.getElementById('vizSegInfo').textContent = 'Saved';
+    setTimeout(() => { const el = document.getElementById('vizSegInfo'); if (el) el.textContent = ''; }, 1500);
+  } catch(e) {}
+}
+
+function vizRenderSegmentBar() {
+  const bar = document.getElementById('vizSegmentBar');
+  if (!vizSegments || !vizFrameCount) { bar.innerHTML = ''; return; }
+  const N = vizFrameCount;
+  let html = '<div style="display:flex;height:22px;border-radius:4px;overflow:hidden;position:relative">';
+  vizSegments.forEach((seg, i) => {
+    const pct = (seg.end - seg.start + 1) / N * 100;
+    const st = VIZ_PHASE[seg.phase] || VIZ_PHASE.idle;
+    html += `<div class="seg-block" data-seg="${i}" style="flex:${pct};background:${st.color};display:flex;align-items:center;justify-content:center;overflow:hidden;cursor:pointer;position:relative" title="${seg.label}: frames ${seg.start}-${seg.end}">
+      <span style="font-size:0.68rem;font-weight:600;color:${st.text};white-space:nowrap;padding:0 6px;pointer-events:none">${pct > 5 ? seg.label : ''}</span>
+    </div>`;
+  });
+  html += '</div>';
+  for (let i = 1; i < vizSegments.length; i++) {
+    const leftPct = (vizSegments[i].start) / N * 100;
+    html += `<div class="seg-handle" data-handle="${i}" style="position:absolute;left:calc(${leftPct}% - 5px);top:0;width:10px;height:26px;cursor:col-resize;z-index:10;display:flex;align-items:center;justify-content:center" title="Drag to adjust">
+      <div style="width:3px;height:18px;background:#666;border-radius:2px;opacity:0.6"></div>
+    </div>`;
+  }
+  bar.innerHTML = html;
+
+  bar.querySelectorAll('.seg-block').forEach(el => {
+    el.addEventListener('click', () => {
+      if (vizDragMoved) return;
+      vizCycleSegPhase(parseInt(el.dataset.seg));
+    });
+    el.addEventListener('dblclick', (e) => {
+      e.preventDefault();
+      const rect = bar.getBoundingClientRect();
+      const pct = (e.clientX - rect.left) / rect.width;
+      const frame = Math.round(pct * (N - 1));
+      vizSplitAtFrame(frame);
+    });
+  });
+
+  bar.querySelectorAll('.seg-handle').forEach(el => {
+    el.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      vizDragMoved = false;
+      vizDragHandle = { idx: parseInt(el.dataset.handle) };
+      document.addEventListener('mousemove', vizHandleDrag);
+      document.addEventListener('mouseup', vizHandleDragEnd);
+    });
+  });
+}
+
+function vizHandleDrag(e) {
+  if (!vizDragHandle) return;
+  vizDragMoved = true;
+  const bar = document.getElementById('vizSegmentBar');
+  const rect = bar.getBoundingClientRect();
+  const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+  const frame = Math.round(pct * (vizFrameCount - 1));
+  const i = vizDragHandle.idx;
+  const prevSeg = vizSegments[i - 1];
+  const curSeg = vizSegments[i];
+  const minFrame = prevSeg.start + 2;
+  const maxFrame = curSeg.end - 1;
+  const clampedFrame = Math.max(minFrame, Math.min(maxFrame, frame));
+  prevSeg.end = clampedFrame - 1;
+  curSeg.start = clampedFrame;
+  vizRenderSegmentBar();
+  if (vizChart) vizChart.update('none');
+}
+
+function vizHandleDragEnd() {
+  if (!vizDragHandle) return;
+  vizDragHandle = null;
+  document.removeEventListener('mousemove', vizHandleDrag);
+  document.removeEventListener('mouseup', vizHandleDragEnd);
+  if (!vizDragMoved) return;
+  for (let j = vizSegments.length - 1; j >= 0; j--) {
+    if (vizSegments[j].end - vizSegments[j].start < 2 && vizSegments.length > 1) {
+      if (j > 0) {
+        vizSegments[j - 1].end = vizSegments[j].end;
+      } else {
+        vizSegments[j + 1].start = vizSegments[j].start;
+      }
+      vizSegments.splice(j, 1);
+    }
+  }
+  vizRenderSegmentBar();
+  if (vizChart) vizChart.update('none');
+  vizSaveSegments();
+}
+
+function vizCycleSegPhase(i) {
+  if (!vizSegments || i < 0 || i >= vizSegments.length) return;
+  const seg = vizSegments[i];
+  const curIdx = VIZ_PHASES_CYCLE.indexOf(seg.phase);
+  seg.phase = VIZ_PHASES_CYCLE[(curIdx + 1) % VIZ_PHASES_CYCLE.length];
+  seg.label = seg.phase;
+  vizRenderSegmentBar();
+  if (vizChart) vizChart.update('none');
+  vizSaveSegments();
+}
+
+function vizSplitAtFrame(frame) {
+  if (!vizSegments || !vizFrameCount) return;
+  const si = vizSegments.findIndex(s => frame >= s.start && frame <= s.end);
+  if (si < 0) return;
+  const seg = vizSegments[si];
+  if (frame - seg.start < 3 || seg.end - frame < 3) return;
+  const newSeg = { start: frame, end: seg.end, phase: 'idle', label: 'idle' };
+  seg.end = frame - 1;
+  vizSegments.splice(si + 1, 0, newSeg);
+  vizRenderSegmentBar();
+  if (vizChart) vizChart.update('none');
+  vizSaveSegments();
+}
+
+// ============================================================
+// Chart
+// ============================================================
+async function vizDrawChart(frames) {
+  const ctx = document.getElementById('vizChart');
+  if (vizChart) vizChart.destroy();
+
+  const ep = parseInt(document.getElementById('vizEpisodeSelect').value);
+  try {
+    const saved = await vizLoadSegments(vizCurrentDataset, ep);
+    if (saved) {
+      vizSegments = saved;
+    } else {
+      vizSegments = vizDetectSegments(frames);
+      vizSaveSegments();
+    }
+    vizRenderSegmentBar();
+    vizUpdatePhaseLabel(0);
+  } catch(e) { console.error('Segment error:', e); }
+
+  const sampleAction = frames[0] ? frames[0].action : null;
+  const jointCount = Array.isArray(sampleAction) ? sampleAction.length : 6;
+  const jointNames = jointCount <= VIZ_JOINTS.length ? VIZ_JOINTS.slice(0, jointCount) :
+    Array.from({ length: jointCount }, (_, i) => i < VIZ_JOINTS.length ? VIZ_JOINTS[i] : `joint_${i}`);
+
+  const labels = frames.map((f, i) => i);
+  const datasets = jointNames.map((j, ji) => ({
+    label: j,
+    data: frames.map(f => {
+      const a = f.action;
+      return Array.isArray(a) ? a[ji] : null;
+    }),
+    borderColor: VIZ_COLORS[ji % VIZ_COLORS.length],
+    borderWidth: 1.5,
+    pointRadius: 0,
+    tension: 0.3,
+  }));
+
+  vizChart = new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets },
+    plugins: [vizSegmentPlugin],
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } },
+      },
+      scales: {
+        x: { title: { display: true, text: 'Frame' }, ticks: { maxTicksLimit: 20 } },
+        y: { title: { display: true, text: 'Value' } },
+      },
+    },
+  });
+}
+
+// ============================================================
+// Select mode / delete episodes
+// ============================================================
+function vizToggleSelectMode() {
+  vizSelectMode = !vizSelectMode;
+  const btn = document.getElementById('vizSelectModeBtn');
+  const delBtn = document.getElementById('vizDeleteBtn');
+  const actionsRow = document.getElementById('vizSelectActions');
+  const editTaskBtn = document.getElementById('vizEditTaskBtn');
+  if (vizSelectMode) {
+    btn.textContent = 'Cancel';
+    btn.style.color = '#d93025';
+    actionsRow.style.display = 'flex';
+    editTaskBtn.style.display = 'none';
+    delBtn.style.display = 'none';
+  } else {
+    btn.textContent = 'Select';
+    btn.style.color = '';
+    actionsRow.style.display = 'none';
+  }
+  document.querySelectorAll('.viz-ep-cb').forEach(cb => {
+    cb.style.display = vizSelectMode ? '' : 'none';
+    cb.checked = false;
+  });
+}
+
+function vizSelectAll() {
+  const cbs = document.querySelectorAll('.viz-ep-cb');
+  const allChecked = [...cbs].every(cb => cb.checked);
+  cbs.forEach(cb => cb.checked = !allChecked);
+  vizUpdateDeleteBtn();
+}
+
+function vizUpdateDeleteBtn() {
+  const checked = document.querySelectorAll('.viz-ep-cb:checked').length;
+  const delBtn = document.getElementById('vizDeleteBtn');
+  const editTaskBtn = document.getElementById('vizEditTaskBtn');
+  const show = checked > 0;
+  editTaskBtn.style.display = show ? '' : 'none';
+  delBtn.style.display = show ? '' : 'none';
+  delBtn.textContent = show ? `Delete (${checked})` : 'Delete';
+}
+
+async function vizEditTaskSelected() {
+  const checked = [...document.querySelectorAll('.viz-ep-cb:checked')].map(cb => parseInt(cb.dataset.ep));
+  if (!checked.length) return;
+
+  const firstEp = vizEpisodesData[checked[0]];
+  const currentTask = firstEp && firstEp.tasks ? (Array.isArray(firstEp.tasks) ? firstEp.tasks[0] : firstEp.tasks) : '';
+
+  // Collect tasks actually in use by episodes
+  const taskSet = new Set();
+  vizEpisodesData.forEach(ep => {
+    const ts = ep && ep.tasks ? (Array.isArray(ep.tasks) ? ep.tasks : [ep.tasks]) : [];
+    ts.forEach(t => { if (t) taskSet.add(t); });
+  });
+  const tasks = [...taskSet];
+
+  const optionsHtml = tasks.map(t =>
+    `<div class="edit-task-option${t === currentTask ? ' active' : ''}" onclick="selectTaskOption(this)" data-task="${t.replace(/"/g, '&quot;')}">${t}</div>`
+  ).join('');
+
+  const body = document.getElementById('modalBody');
+  body.innerHTML = `
+    <h3 style="margin-top:0;margin-bottom:8px">Edit Task</h3>
+    <p style="font-size:0.85rem;color:#666;margin-bottom:12px">Set task for ${checked.length} selected episode(s).</p>
+    ${tasks.length ? `
+      <div style="margin-bottom:10px">
+        <label class="form-label">Existing Tasks</label>
+        <div id="editTaskOptions" style="max-height:160px;overflow-y:auto;border:1px solid #e0e0e0;border-radius:8px;background:#fafafa">${optionsHtml}</div>
+      </div>
+      <div style="text-align:center;font-size:0.72rem;color:#bbb;margin-bottom:8px">or add a new task</div>
+    ` : ''}
+    <div style="margin-bottom:14px">
+      <label class="form-label">New Task</label>
+      <input type="text" id="editTaskInput" class="form-input" placeholder="e.g. pick up the object" oninput="clearTaskSelection()">
+    </div>
+    <div style="display:flex;gap:10px;align-items:center">
+      <button class="btn" id="editTaskSaveBtn" onclick="doEditTask()" style="background:#1a73e8">Save</button>
+      <button class="btn btn-sm btn-ghost" onclick="closeModal()">Cancel</button>
+      <span id="editTaskStatus" style="font-size:0.85rem;color:#888"></span>
+    </div>
+  `;
+  document.getElementById('modalOverlay').classList.add('visible');
+
+  // Pre-select current task
+  if (currentTask && tasks.includes(currentTask)) {
+    window._selectedTask = currentTask;
+  } else {
+    window._selectedTask = null;
+  }
+  window._editTaskEpisodes = checked;
+}
+
+function selectTaskOption(el) {
+  document.querySelectorAll('.edit-task-option').forEach(e => e.classList.remove('active'));
+  el.classList.add('active');
+  window._selectedTask = el.dataset.task;
+  document.getElementById('editTaskInput').value = '';
+}
+
+function clearTaskSelection() {
+  document.querySelectorAll('.edit-task-option').forEach(e => e.classList.remove('active'));
+  window._selectedTask = null;
+}
+
+async function doEditTask() {
+  const newInput = document.getElementById('editTaskInput').value.trim();
+  const task = newInput || window._selectedTask || '';
+  if (!task) { alert('Select an existing task or enter a new one'); return; }
+  const episodes = window._editTaskEpisodes;
+  const btn = document.getElementById('editTaskSaveBtn');
+  const st = document.getElementById('editTaskStatus');
+  btn.disabled = true;
+  st.textContent = 'Saving...';
+  try {
+    const r = await fetch(`/api/datasets/${vizCurrentDataset}/update-tasks`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ task, episodes }),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      st.textContent = `Updated ${d.updated_episodes} episode(s)`;
+      st.style.color = '#34a853';
+      setTimeout(() => {
+        closeModal();
+        vizToggleSelectMode();
+        document.getElementById('vizDatasetSelect').dispatchEvent(new Event('change'));
+      }, 800);
+    } else {
+      st.textContent = d.error || 'Error';
+      st.style.color = '#d93025';
+      btn.disabled = false;
+    }
+  } catch(e) { st.textContent = e.message; st.style.color = '#d93025'; btn.disabled = false; }
+}
+
+async function vizDeleteSelected() {
+  const checked = [...document.querySelectorAll('.viz-ep-cb:checked')].map(cb => parseInt(cb.dataset.ep));
+  if (!checked.length) return;
+  if (!confirm(`Delete ${checked.length} episode(s)? This cannot be undone.\n\nEpisodes: ${checked.join(', ')}`)) return;
+
+  const btn = document.getElementById('vizDeleteBtn');
+  btn.disabled = true;
+  btn.textContent = 'Deleting...';
+  try {
+    const r = await fetch(`/api/datasets/${vizCurrentDataset}/delete-episodes`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ episodes: checked }),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      alert(`Deleted ${d.deleted} episode(s). ${d.remaining_episodes} remaining.`);
+      vizToggleSelectMode();
+      document.getElementById('vizDatasetSelect').dispatchEvent(new Event('change'));
+    } else {
+      alert('Error: ' + (d.error || 'Unknown error'));
+    }
+  } catch(e) { alert('Error: ' + e.message); }
+  btn.disabled = false;
+  btn.textContent = 'Delete';
+}
+
+// ============================================================
+// Rename dataset
+// ============================================================
+async function vizRenameDataset() {
+  const name = vizCurrentDataset;
+  if (!name) return;
+  const newName = prompt(`Rename dataset "${name}" to:`, name);
+  if (!newName || newName === name) return;
+  const st = document.getElementById('vizDatasetStatus');
+  st.textContent = 'Renaming...'; st.style.color = '#888';
+  try {
+    const r = await fetch(`/api/datasets/${name}/rename`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ new_name: newName }),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      st.textContent = `Renamed to ${d.new_name}`; st.style.color = '#34a853';
+      vizCurrentDataset = d.new_name;
+      await vizRefreshDatasets();
+      document.getElementById('vizDatasetSelect').value = d.new_name;
+      document.getElementById('vizDatasetSelect').dispatchEvent(new Event('change'));
+    } else {
+      st.textContent = d.error || 'Rename failed'; st.style.color = '#d93025';
+    }
+  } catch(e) { st.textContent = e.message; st.style.color = '#d93025'; }
+}
+
+// ============================================================
+// Delete dataset
+// ============================================================
+function vizShowDeleteDataset() {
+  const name = vizCurrentDataset;
+  if (!name) return;
+  const body = document.getElementById('modalBody');
+  body.innerHTML = `
+    <h3 style="margin-top:0;margin-bottom:8px;color:#d93025">Delete Dataset</h3>
+    <p style="margin-bottom:12px;font-size:0.9rem">This will permanently delete <strong>${name}</strong> and all its data. This cannot be undone.</p>
+    <div style="margin-bottom:14px">
+      <label class="form-label">Type <strong style="user-select:all">${name}</strong> to confirm</label>
+      <input type="text" id="deleteDsConfirm" class="form-input" placeholder="${name}" oninput="document.getElementById('deleteDsBtn').disabled = this.value !== '${name}'">
+    </div>
+    <div style="display:flex;gap:10px;align-items:center">
+      <button class="btn btn-danger" id="deleteDsBtn" onclick="vizDoDeleteDataset()" disabled>Delete</button>
+      <button class="btn btn-sm btn-ghost" onclick="closeModal()">Cancel</button>
+      <span id="deleteDsStatus" style="font-size:0.85rem;color:#888"></span>
+    </div>
+  `;
+  document.getElementById('modalOverlay').classList.add('visible');
+  document.getElementById('deleteDsConfirm').focus();
+}
+
+async function vizDoDeleteDataset() {
+  const name = vizCurrentDataset;
+  const st = document.getElementById('deleteDsStatus');
+  st.textContent = 'Deleting...';
+  try {
+    const r = await fetch(`/api/datasets/${name}`, { method: 'DELETE' });
+    const d = await r.json();
+    if (d.ok) {
+      closeModal();
+      vizCurrentDataset = null;
+      document.getElementById('vizContent').style.display = 'none';
+      document.getElementById('vizEmptyState').style.display = '';
+      document.getElementById('dsInfoPanel').style.display = 'none';
+      document.getElementById('dsManageRow').style.display = 'none';
+      document.getElementById('rightPanel').classList.add('hidden');
+      document.getElementById('vizEpisodeList').innerHTML = '';
+      vizRefreshDatasets();
+    } else {
+      st.textContent = d.error || 'Error'; st.style.color = '#d93025';
+    }
+  } catch(e) { st.textContent = e.message; st.style.color = '#d93025'; }
+}
+
+// ============================================================
+// Combine datasets
+// ============================================================
+async function vizShowCombine() {
+  try {
+    const r = await fetch('/api/datasets');
+    const d = await r.json();
+    vizAllDatasets = d.datasets || [];
+  } catch(e) { alert('Error loading datasets'); return; }
+  if (vizAllDatasets.length < 2) { alert('Need at least 2 datasets to combine.'); return; }
+
+  const body = document.getElementById('modalBody');
+  body.innerHTML = `
+    <h3 style="margin-top:0;margin-bottom:16px">Combine Datasets</h3>
+    <div style="margin-bottom:14px">
+      <label class="form-label">New Dataset Name</label>
+      <input type="text" id="combineNewName" class="form-input" placeholder="e.g. combined-dataset">
+    </div>
+    <div style="margin-bottom:14px">
+      <label class="form-label">Select Datasets to Combine</label>
+      <div id="combineList" style="max-height:320px;overflow-y:auto;border:1px solid #e0e0e0;border-radius:8px"></div>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center">
+      <button class="btn" id="combineBtn" onclick="vizDoCombine()">Combine</button>
+      <button class="btn btn-sm btn-ghost" onclick="closeModal()">Cancel</button>
+      <span id="combineStatus" style="font-size:0.85rem;color:#888"></span>
+    </div>
+  `;
+
+  const list = document.getElementById('combineList');
+  vizAllDatasets.forEach(ds => {
+    const div = document.createElement('div');
+    div.style.cssText = 'padding:10px 14px;border-bottom:1px solid #f0f0f0;display:flex;align-items:center;gap:10px;cursor:pointer';
+    const tasksHtml = (ds.tasks || []).map(t => `<span style="background:#e8f0fe;color:#1a73e8;padding:1px 6px;border-radius:4px;font-size:0.7rem">${t}</span>`).join(' ');
+    div.innerHTML = `<input type="checkbox" class="combine-cb" value="${ds.name}">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:0.9rem;font-weight:600">${ds.name}</div>
+        <div style="font-size:0.75rem;color:#888;margin-bottom:2px">${ds.total_episodes} episodes &middot; ${ds.total_frames} frames</div>
+        ${tasksHtml ? `<div style="display:flex;gap:4px;flex-wrap:wrap">${tasksHtml}</div>` : ''}
+      </div>`;
+    div.addEventListener('click', e => {
+      if (e.target.tagName !== 'INPUT') {
+        const cb = div.querySelector('.combine-cb');
+        cb.checked = !cb.checked;
+      }
+    });
+    list.appendChild(div);
+  });
+
+  document.getElementById('modalOverlay').classList.add('visible');
+}
+
+async function vizDoCombine() {
+  const newName = document.getElementById('combineNewName').value.trim();
+  const selected = [...document.querySelectorAll('.combine-cb:checked')].map(cb => cb.value);
+  const st = document.getElementById('combineStatus');
+  if (!newName) { st.textContent = 'Enter a name'; st.style.color = '#d93025'; return; }
+  if (selected.length < 2) { st.textContent = 'Select at least 2'; st.style.color = '#d93025'; return; }
+
+  const btn = document.getElementById('combineBtn');
+  btn.disabled = true;
+  st.textContent = 'Combining...'; st.style.color = '#1a73e8';
+  try {
+    const r = await fetch('/api/datasets/combine', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: newName, datasets: selected }),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      closeModal();
+      alert(`Combined! "${d.name}" - ${d.episodes} episodes, ${d.frames} frames`);
+      vizRefreshDatasets();
+    } else {
+      st.textContent = d.error || 'Error'; st.style.color = '#d93025';
+    }
+  } catch(e) { st.textContent = e.message; st.style.color = '#d93025'; }
+  btn.disabled = false;
+}
+
+// ============================================================
+// Import dataset
+// ============================================================
+let importBrowsePath = '~';
+
+function vizShowImport() {
+  const body = document.getElementById('modalBody');
+  body.innerHTML = `
+    <h3 style="margin-top:0;margin-bottom:12px">Import Dataset</h3>
+
+    <div style="margin-bottom:10px">
+      <label class="form-label">Dataset Path</label>
+      <div style="display:flex;gap:6px">
+        <input type="text" id="importPathInput" class="form-input" placeholder="/path/to/dataset" style="flex:1;font-family:'SF Mono','Menlo',monospace;font-size:0.82rem">
+        <button class="btn btn-sm btn-ghost" onclick="importBrowse(document.getElementById('importPathInput').value || '~')">Browse</button>
+      </div>
+    </div>
+
+    <!-- Drop zone -->
+    <div id="importDropZone" class="import-drop-zone"
+         ondragover="event.preventDefault();event.stopPropagation();this.classList.add('drag-over')"
+         ondragleave="event.preventDefault();event.stopPropagation();this.classList.remove('drag-over')"
+         ondrop="event.preventDefault();event.stopPropagation();this.classList.remove('drag-over');handleDropZone(event)">
+      <div class="drop-icon">&#128194;</div>
+      <div class="drop-text">Drop dataset folder here</div>
+      <div class="drop-hint">Drag &amp; drop a dataset folder</div>
+    </div>
+
+    <div id="importBrowser" style="display:none;margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+        <button class="btn-xs btn-ghost" id="importUpBtn" onclick="importGoUp()">&uarr; Up</button>
+        <span id="importCurPath" style="font-size:0.75rem;color:#888;font-family:'SF Mono','Menlo',monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
+      </div>
+      <div id="importFileList" style="max-height:280px;overflow-y:auto;border:1px solid #e0e0e0;border-radius:8px;background:#fafafa"></div>
+    </div>
+
+    <div style="margin-bottom:12px">
+      <label class="form-label">Dataset Name (optional)</label>
+      <input type="text" id="importNameInput" class="form-input" placeholder="leave empty to use folder name">
+    </div>
+
+    <div style="display:flex;gap:10px;align-items:center">
+      <button class="btn" id="importBtn" onclick="vizDoImport()" style="background:#00897b">Import</button>
+      <button class="btn btn-sm btn-ghost" onclick="closeModal()">Cancel</button>
+      <span id="importStatus" style="font-size:0.85rem;color:#888"></span>
+    </div>
+
+    <div id="importProgress" style="display:none;margin-top:12px">
+      <div style="height:6px;background:#e0e0e0;border-radius:3px;overflow:hidden">
+        <div id="importBar" style="height:100%;width:0%;background:#00897b;transition:width 0.3s"></div>
+      </div>
+      <div id="importDetail" style="font-size:0.78rem;color:#888;margin-top:4px"></div>
+    </div>
+  `;
+  document.getElementById('modalOverlay').classList.add('visible');
+  document.getElementById('importPathInput').focus();
+
+  document.getElementById('importPathInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') importBrowse(e.target.value || '~');
+  });
+}
+
+async function importBrowse(path) {
+  const browser = document.getElementById('importBrowser');
+  const fileList = document.getElementById('importFileList');
+  const curPath = document.getElementById('importCurPath');
+  browser.style.display = '';
+  fileList.innerHTML = '<div style="padding:14px;color:#888;font-size:0.85rem">Loading...</div>';
+
+  try {
+    const r = await fetch('/api/browse?path=' + encodeURIComponent(path));
+    const d = await r.json();
+    if (!d.ok) { fileList.innerHTML = `<div style="padding:14px;color:#d93025;font-size:0.85rem">${d.error}</div>`; return; }
+
+    importBrowsePath = d.current;
+    curPath.textContent = d.current;
+    document.getElementById('importPathInput').value = d.current;
+    document.getElementById('importUpBtn').style.display = d.parent ? '' : 'none';
+
+    if (!d.entries.length) {
+      fileList.innerHTML = '<div style="padding:14px;color:#999;font-size:0.85rem">No subdirectories</div>';
+      return;
+    }
+
+    fileList.innerHTML = '';
+    d.entries.forEach(e => {
+      const div = document.createElement('div');
+      div.style.cssText = 'padding:8px 14px;border-bottom:1px solid #f0f0f0;display:flex;align-items:center;gap:10px;cursor:pointer;font-size:0.85rem';
+      if (e.is_dataset) div.style.background = '#e8f5e9';
+      else if (e.has_datasets) div.style.background = '#fff8e1';
+
+      let badge = '';
+      if (e.is_dataset) badge = '<span style="font-size:0.68rem;background:#2e7d32;color:#fff;padding:1px 6px;border-radius:4px;font-weight:600">Dataset</span>';
+      else if (e.has_datasets) badge = '<span style="font-size:0.68rem;background:#f9a825;color:#fff;padding:1px 6px;border-radius:4px;font-weight:600">Contains datasets</span>';
+
+      div.innerHTML = `<span style="color:#1a73e8">&#128193;</span>
+        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.name}</span>
+        ${badge}`;
+
+      div.addEventListener('click', () => {
+        if (e.is_dataset || e.has_datasets) {
+          document.getElementById('importPathInput').value = e.path;
+          fileList.querySelectorAll('div').forEach(d => d.style.outline = '');
+          div.style.outline = '2px solid #00897b';
+        } else {
+          importBrowse(e.path);
+        }
+      });
+      div.addEventListener('dblclick', () => importBrowse(e.path));
+      fileList.appendChild(div);
+    });
+  } catch(e) {
+    fileList.innerHTML = `<div style="padding:14px;color:#d93025;font-size:0.85rem">${e.message}</div>`;
+  }
+}
+
+function importGoUp() {
+  const parts = importBrowsePath.split('/');
+  parts.pop();
+  importBrowse(parts.join('/') || '/');
+}
+
+function importStartPoll(btn, st) {
+  document.getElementById('importProgress').style.display = '';
+  const poll = setInterval(async () => {
+    try {
+      const r2 = await fetch('/api/import/status');
+      const s = await r2.json();
+      const bar = document.getElementById('importBar');
+      const detail = document.getElementById('importDetail');
+      if (bar) bar.style.width = s.progress + '%';
+      if (detail) detail.textContent = s.status || '';
+      if (st) st.textContent = s.status || '';
+
+      if (s.error) {
+        if (st) { st.textContent = s.error; st.style.color = '#d93025'; }
+        clearInterval(poll);
+        if (btn) btn.disabled = false;
+      } else if (!s.running && s.progress >= 100) {
+        if (st) st.style.color = '#34a853';
+        clearInterval(poll);
+        if (btn) btn.disabled = false;
+        vizRefreshDatasets();
+      }
+    } catch(e) {}
+  }, 500);
+}
+
+async function vizDoImport() {
+  const path = document.getElementById('importPathInput').value.trim();
+  const name = document.getElementById('importNameInput') ? document.getElementById('importNameInput').value.trim() : '';
+  const st = document.getElementById('importStatus');
+  if (!path) { st.textContent = 'Enter a path'; st.style.color = '#d93025'; return; }
+
+  const btn = document.getElementById('importBtn');
+  btn.disabled = true;
+  st.textContent = 'Starting import...'; st.style.color = '#00897b';
+
+  try {
+    const r = await fetch('/api/datasets/import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path, name }),
+    });
+    const d = await r.json();
+    if (!d.ok) {
+      st.textContent = d.error; st.style.color = '#d93025';
+      btn.disabled = false;
+      return;
+    }
+    importStartPoll(btn, st);
+  } catch(e) {
+    st.textContent = e.message; st.style.color = '#d93025';
+    btn.disabled = false;
+  }
+}
+
+// ============================================================
+// Drop zone handler (sidebar area)
+// ============================================================
+function handleDropZone(e) {
+  const items = e.dataTransfer.items;
+  if (!items || !items.length) return;
+  const entries = [];
+  for (let i = 0; i < items.length; i++) {
+    const entry = items[i].webkitGetAsEntry ? items[i].webkitGetAsEntry() : null;
+    if (entry && entry.isDirectory) entries.push(entry);
+  }
+  if (!entries.length) { alert('Please drop a folder, not files.'); return; }
+  // Reuse the global drop handler logic
+  _processDropEntries(entries);
+}
+
+// ============================================================
+// Drag & drop folder import
+// ============================================================
+(function setupDragDrop() {
+  let dragOverlay = null;
+
+  function showOverlay() {
+    if (dragOverlay) return;
+    dragOverlay = document.createElement('div');
+    dragOverlay.id = 'dropOverlay';
+    dragOverlay.innerHTML = `
+      <div style="border:3px dashed #00897b;border-radius:20px;padding:60px 40px;text-align:center;background:rgba(255,255,255,0.95)">
+        <div style="font-size:2.5rem;margin-bottom:10px">&#128194;</div>
+        <div style="font-size:1.2rem;font-weight:700;color:#00897b;margin-bottom:6px">Drop dataset folder here</div>
+        <div style="font-size:0.85rem;color:#888">Folder will be copied into ./data</div>
+      </div>`;
+    dragOverlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,137,123,0.08);z-index:9999;display:flex;align-items:center;justify-content:center;pointer-events:none';
+    document.body.appendChild(dragOverlay);
+  }
+
+  function hideOverlay() {
+    if (dragOverlay) { dragOverlay.remove(); dragOverlay = null; }
+  }
+
+  let dragCounter = 0;
+
+  document.addEventListener('dragenter', e => {
+    e.preventDefault();
+    dragCounter++;
+    if (dragCounter === 1) showOverlay();
+  });
+
+  document.addEventListener('dragleave', e => {
+    e.preventDefault();
+    dragCounter--;
+    if (dragCounter <= 0) { dragCounter = 0; hideOverlay(); }
+  });
+
+  document.addEventListener('dragover', e => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+  });
+
+  document.addEventListener('drop', async e => {
+    e.preventDefault();
+    dragCounter = 0;
+    hideOverlay();
+
+    const items = e.dataTransfer.items;
+    if (!items || !items.length) return;
+
+    const entries = [];
+    for (let i = 0; i < items.length; i++) {
+      const entry = items[i].webkitGetAsEntry ? items[i].webkitGetAsEntry() : null;
+      if (entry && entry.isDirectory) entries.push(entry);
+    }
+
+    if (!entries.length) {
+      alert('Please drop a folder, not files.');
+      return;
+    }
+
+    _processDropEntries(entries);
+  });
+
+})();
+
+// Shared drop processing
+async function _processDropEntries(entries) {
+    for (const dirEntry of entries) {
+      const folderName = dirEntry.name;
+      const allFiles = [];
+      await collectFiles(dirEntry, '', allFiles);
+
+      const hasInfo = allFiles.some(f => f.path === 'meta/info.json');
+      const subDatasets = new Set();
+      allFiles.forEach(f => {
+        const m = f.path.match(/^([^/]+)\/meta\/info\.json$/);
+        if (m) subDatasets.add(m[1]);
+      });
+
+      if (!hasInfo && !subDatasets.size) {
+        alert(`"${folderName}" is not a valid LeRobot dataset (no meta/info.json found).`);
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('folder_name', folderName);
+      for (const f of allFiles) {
+        formData.append('files', f.file, f.path);
+      }
+
+      const toast = document.createElement('div');
+      toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#fff;border:1px solid #d0d0d0;border-radius:10px;padding:16px 20px;box-shadow:0 4px 16px rgba(0,0,0,0.15);z-index:9999;min-width:300px';
+      toast.innerHTML = `
+        <div style="font-weight:700;font-size:0.9rem;margin-bottom:6px">Importing "${folderName}"...</div>
+        <div style="height:6px;background:#e0e0e0;border-radius:3px;overflow:hidden">
+          <div id="dropBar" style="height:100%;width:0%;background:#00897b;transition:width 0.3s"></div>
+        </div>
+        <div id="dropStatus" style="font-size:0.78rem;color:#888;margin-top:4px">Uploading files...</div>`;
+      document.body.appendChild(toast);
+
+      try {
+        const r = await fetch('/api/datasets/upload', {
+          method: 'POST',
+          body: formData,
+        });
+        const d = await r.json();
+        const bar = document.getElementById('dropBar');
+        const status = document.getElementById('dropStatus');
+        if (d.ok) {
+          if (bar) bar.style.width = '100%';
+          if (status) { status.textContent = `Imported "${d.name}" successfully!`; status.style.color = '#34a853'; }
+          vizRefreshDatasets();
+        } else {
+          if (status) { status.textContent = d.error; status.style.color = '#d93025'; }
+        }
+      } catch(err) {
+        const status = document.getElementById('dropStatus');
+        if (status) { status.textContent = err.message; status.style.color = '#d93025'; }
+      }
+
+      setTimeout(() => toast.remove(), 4000);
+    }
+}
+
+function collectFiles(dirEntry, basePath, result) {
+  return new Promise(resolve => {
+    const reader = dirEntry.createReader();
+    const readBatch = () => {
+      reader.readEntries(async entries => {
+        if (!entries.length) { resolve(); return; }
+        for (const entry of entries) {
+          const relPath = basePath ? basePath + '/' + entry.name : entry.name;
+          if (entry.isFile) {
+            const file = await new Promise(res => entry.file(f => res(f)));
+            result.push({ path: relPath, file });
+          } else if (entry.isDirectory) {
+            await collectFiles(entry, relPath, result);
+          }
+        }
+        readBatch();
+      });
+    };
+    readBatch();
+  });
+}
+
+// ============================================================
+// Config
+// ============================================================
+let appConfig = {};
+
+async function loadAppConfig() {
+  try {
+    const r = await fetch('/api/config');
+    const d = await r.json();
+    if (d.ok) appConfig = d.config;
+  } catch(e) {}
+}
+loadAppConfig();
+
+function vizShowConfig() {
+  const c = appConfig;
+  const body = document.getElementById('modalBody');
+  body.innerHTML = `
+    <h3 style="margin-top:0;margin-bottom:14px">Settings</h3>
+    <p style="font-size:0.82rem;color:#888;margin-bottom:14px">Used to generate CLI commands for Download, Push, Training.</p>
+    <div style="margin-bottom:10px">
+      <label class="form-label">Hugging Face Username</label>
+      <input type="text" id="cfgHfUser" class="form-input" value="${c.hf_username || ''}" placeholder="e.g. your-hf-username">
+    </div>
+    <div style="margin-bottom:14px">
+      <label class="form-label">LeRobot Path</label>
+      <input type="text" id="cfgLeroPath" class="form-input" value="${c.lerobot_path || '~/lerobot'}" placeholder="~/lerobot" style="font-family:'SF Mono','Menlo',monospace;font-size:0.82rem">
+    </div>
+    <div style="display:flex;gap:10px;align-items:center">
+      <button class="btn" onclick="saveConfig()" style="background:#555">Save</button>
+      <button class="btn btn-sm btn-ghost" onclick="closeModal()">Cancel</button>
+      <span id="cfgStatus" style="font-size:0.85rem;color:#888"></span>
+    </div>
+  `;
+  document.getElementById('modalOverlay').classList.add('visible');
+}
+
+async function saveConfig() {
+  const cfg = {
+    hf_username: document.getElementById('cfgHfUser').value.trim(),
+    lerobot_path: document.getElementById('cfgLeroPath').value.trim() || '~/lerobot',
+  };
+  const st = document.getElementById('cfgStatus');
+  try {
+    const r = await fetch('/api/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(cfg),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      appConfig = d.config;
+      st.textContent = 'Saved!'; st.style.color = '#34a853';
+      setTimeout(closeModal, 800);
+    } else {
+      st.textContent = d.error || 'Error'; st.style.color = '#d93025';
+    }
+  } catch(e) { st.textContent = e.message; st.style.color = '#d93025'; }
+}
+
+// ============================================================
+// Command display helper
+// ============================================================
+function cmdBlock(cmd) {
+  return `<div style="position:relative;background:#1e1e1e;color:#d4d4d4;font-family:'SF Mono','Menlo','Consolas',monospace;font-size:0.78rem;line-height:1.6;padding:12px 14px;border-radius:8px;margin-bottom:10px;white-space:pre-wrap;word-break:break-all"><button onclick="navigator.clipboard.writeText(this.nextElementSibling.textContent.trim())" style="position:absolute;top:6px;right:8px;background:#444;color:#ccc;border:none;border-radius:4px;padding:2px 8px;font-size:0.68rem;cursor:pointer">Copy</button><span>${cmd}</span></div>`;
+}
+
+// ============================================================
+// Download from HF (command guide)
+// ============================================================
+function vizShowDownloadHf() {
+  const c = appConfig;
+  const user = c.hf_username || '&lt;HF_USERNAME&gt;';
+  const body = document.getElementById('modalBody');
+  body.innerHTML = `
+    <h3 style="margin-top:0;margin-bottom:8px">Download Dataset from Hugging Face</h3>
+    <p style="font-size:0.85rem;color:#666;margin-bottom:14px">Run these commands in your terminal to download a dataset.</p>
+    <div style="margin-bottom:10px">
+      <label class="form-label">Repository ID</label>
+      <input type="text" id="dlHfRepo" class="form-input" placeholder="${user}/dataset-name" value="${user}/" oninput="updateDlCmd()">
+    </div>
+    <div id="dlCmdArea">
+      <label class="form-label">Commands</label>
+      ${cmdBlock(`hf download ${user}/<dataset-name> --repo-type dataset --local-dir ./data/<dataset-name>`)}
+    </div>
+    <button class="btn btn-sm btn-ghost" onclick="closeModal()" style="margin-top:6px">Close</button>
+  `;
+  document.getElementById('modalOverlay').classList.add('visible');
+
+  window.updateDlCmd = function() {
+    const repo = document.getElementById('dlHfRepo').value.trim();
+    const localName = repo.includes('/') ? repo.split('/')[1] : repo;
+    document.getElementById('dlCmdArea').innerHTML = `
+      <label class="form-label">Commands</label>
+      ${cmdBlock(`hf download ${repo || user + '/<dataset-name>'} --repo-type dataset --local-dir ./data/${localName || '<dataset-name>'}`)}
+    `;
+  };
+}
+
+// ============================================================
+// Push to HF (command guide)
+// ============================================================
+function vizShowPushHf() {
+  const name = vizCurrentDataset;
+  if (!name) return;
+  const c = appConfig;
+  const user = c.hf_username || '&lt;HF_USERNAME&gt;';
+  const repo = `${user}/${name}`;
+  const body = document.getElementById('modalBody');
+  body.innerHTML = `
+    <h3 style="margin-top:0;margin-bottom:8px">Push to Hugging Face</h3>
+    <p style="font-size:0.85rem;color:#666;margin-bottom:14px">Run these commands to upload <strong>${name}</strong> to HF Hub.</p>
+    <div style="margin-bottom:10px">
+      <label class="form-label">Repository ID</label>
+      <input type="text" id="pushHfRepo" class="form-input" value="${repo}" oninput="updatePushCmd()">
+    </div>
+    <div id="pushCmdArea">
+      <label class="form-label">Commands</label>
+      ${cmdBlock(`hf upload ${repo} ./data/${name} --repo-type dataset`)}
+    </div>
+    <button class="btn btn-sm btn-ghost" onclick="closeModal()" style="margin-top:6px">Close</button>
+  `;
+  document.getElementById('modalOverlay').classList.add('visible');
+
+  window.updatePushCmd = function() {
+    const r = document.getElementById('pushHfRepo').value.trim();
+    document.getElementById('pushCmdArea').innerHTML = `
+      <label class="form-label">Commands</label>
+      ${cmdBlock(`hf upload ${r} ./data/${name} --repo-type dataset`)}
+    `;
+  };
+}
+
+// ============================================================
+// Training (command guide)
+// ============================================================
+function vizShowTraining() {
+  const name = vizCurrentDataset;
+  if (!name) return;
+  const c = appConfig;
+  const user = c.hf_username || '<HF_USERNAME>';
+  const repoId = `${user}/${name}`;
+  const dataDir = `./data/${name}`;
+
+  window._tgCtx = { name, repoId, dataDir, user };
+  _tgBuildCmds(true);
+}
+
+function _tgBuildCmds(firstRender) {
+  const { name, repoId, dataDir, user } = window._tgCtx;
+  const wb = firstRender ? true : document.getElementById('tgWandbCheck')?.checked;
+  const copyBtnHtml = (id) => `<button style="position:absolute;top:8px;right:8px;background:#555;color:#fff;border:none;border-radius:4px;padding:3px 10px;font-size:0.7rem;cursor:pointer;z-index:1" onclick="vizCopyCmd('${id}')">Copy</button>`;
+
+  const wbLines = wb
+    ? [`  --wandb.enable=true \\`, `  --wandb.project=LeRobot-Experiments \\`]
+    : [`  --wandb.enable=false \\`];
+
+  // Setup commands
+  const cmdSetupEnv = [
+    `conda create -n lerobot python=3.12 -y`,
+    `conda activate lerobot`,
+    ``,
+    `conda install ffmpeg=7.1.1 -c conda-forge -y`,
+  ].join('\n');
+
+  const cmdSetupInstall = [
+    `git clone https://github.com/huggingface/lerobot.git`,
+    `cd lerobot`,
+    ``,
+    `pip install -e .`,
+    ``,
+    `pip install -e ".[all]"`,
+    `pip install wandb`,
+  ].join('\n');
+
+  const cmdSetupDeps = [
+    `pip install "transformers>=4.48.0" "huggingface-hub>=1.5.0,<2.0"`,
+    `pip install python-dateutil`,
+  ].join('\n');
+
+  // Download
+  const cmdDownload = [
+    `conda activate lerobot`,
+    ``,
+    `hf download ${repoId} \\`,
+    `  --repo-type dataset \\`,
+    `  --local-dir ${dataDir}`,
+  ].join('\n');
+
+  // Training commands per model
+  const selectedModel = firstRender ? 'act' : (document.querySelector('input[name="tgModel"]:checked')?.value || 'act');
+
+  const actRepo = `${user}/act_${name}`;
+  const cmdACT = [
+    `lerobot-train \\`,
+    `  --policy.type=act \\`,
+    `  --dataset.repo_id=${repoId} \\`,
+    `  --dataset.root=${dataDir} \\`,
+    `  --steps=100000 \\`,
+    `  --batch_size=32 \\`,
+    `  --policy.optimizer_lr=0.00001 \\`,
+    ...wbLines,
+    `  --output_dir=outputs/train/act_${name} \\`,
+    `  --job_name=act_${name} \\`,
+    `  --policy.repo_id=${actRepo}`,
+  ].join('\n');
+
+  const smolvlaRepo = `${user}/smolvla_${name}`;
+  const cmdSmolVLA = [
+    `lerobot-train \\`,
+    `  --policy.type=smolvla \\`,
+    `  --dataset.repo_id=${repoId} \\`,
+    `  --dataset.root=${dataDir} \\`,
+    `  --policy.load_vlm_weights=true \\`,
+    `  --policy.vlm_model_name="HuggingFaceTB/SmolVLM2-500M-Video-Instruct" \\`,
+    `  --policy.train_expert_only=true \\`,
+    `  --policy.freeze_vision_encoder=true \\`,
+    `  --policy.use_amp=true \\`,
+    `  --steps=100000 \\`,
+    `  --batch_size=32 \\`,
+    `  --policy.optimizer_lr=0.0001 \\`,
+    ...wbLines,
+    `  --output_dir=outputs/train/smolvla_${name} \\`,
+    `  --job_name=smolvla_${name} \\`,
+    `  --policy.repo_id=${smolvlaRepo}`,
+  ].join('\n');
+
+  const pi05Repo = `${user}/pi05_${name}`;
+  const cmdPi05 = [
+    `lerobot-train \\`,
+    `  --policy.type=pi0 \\`,
+    `  --policy.pretrained_path=lerobot/pi0.5 \\`,
+    `  --dataset.repo_id=${repoId} \\`,
+    `  --dataset.root=${dataDir} \\`,
+    `  --policy.use_amp=true \\`,
+    `  --steps=100000 \\`,
+    `  --batch_size=16 \\`,
+    ...wbLines,
+    `  --output_dir=outputs/train/pi05_${name} \\`,
+    `  --job_name=pi05_${name} \\`,
+    `  --policy.repo_id=${pi05Repo}`,
+  ].join('\n');
+
+  const modelCmds = { act: cmdACT, smolvla: cmdSmolVLA, pi05: cmdPi05 };
+  const modelDescs = {
+    act: 'Action Chunking with Transformers — lightweight, good for simple tasks. GPU: 8GB+',
+    smolvla: 'SmolVLA — Vision-Language-Action model with language conditioning. GPU: 16GB+',
+    pi05: 'Physical Intelligence pi0.5 — large VLA model, best generalization. GPU: 24GB+',
+  };
+  const trainCmd = modelCmds[selectedModel];
+  const trainDesc = modelDescs[selectedModel];
+  const policyRepo = { act: actRepo, smolvla: smolvlaRepo, pi05: pi05Repo }[selectedModel];
+
+  // Resume — full train command + resume flags appended
+  const outDir = `outputs/train/${selectedModel === 'pi05' ? 'pi05' : selectedModel}_${name}`;
+  const cmdResume = trainCmd.replace(
+    `  --policy.repo_id=${policyRepo}`,
+    `  --policy.repo_id=${policyRepo} \\\n  --resume=true \\\n  --checkpoint_path=${outDir}/checkpoints/last`
+  );
+
+  // Tab state
+  if (firstRender) window._tgActiveTab = 'tg-setup';
+  const activeTab = window._tgActiveTab || 'tg-setup';
+
+  const esc = (s) => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const tCmd = (id, content) => `<div class="train-cmd" id="${id}">${copyBtnHtml(id)}${esc(content)}</div>`;
+
+  const body = document.getElementById('modalBody');
+  body.innerHTML = `
+    <h3 style="margin:0 0 4px">Training Guide</h3>
+    <p style="margin-bottom:12px;font-size:0.88rem;color:#555">Commands for training <strong>${name}</strong> on GPU server.</p>
+
+    <div style="display:flex;gap:0;margin-bottom:14px;border-bottom:2px solid #e0e0e0">
+      <button class="tg-tab ${activeTab==='tg-setup'?'active':''}" onclick="tgSwitchTab(this,'tg-setup')">Setup</button>
+      <button class="tg-tab ${activeTab==='tg-download'?'active':''}" onclick="tgSwitchTab(this,'tg-download')">Download</button>
+      <button class="tg-tab ${activeTab==='tg-train'?'active':''}" onclick="tgSwitchTab(this,'tg-train')">Training</button>
+      <button class="tg-tab ${activeTab==='tg-resume'?'active':''}" onclick="tgSwitchTab(this,'tg-resume')">Resume</button>
+      <button class="tg-tab ${activeTab==='tg-tips'?'active':''}" onclick="tgSwitchTab(this,'tg-tips')">Tips</button>
+    </div>
+
+    <div id="tg-setup" class="tg-panel" style="${activeTab==='tg-setup'?'':'display:none'}">
+      <div style="font-size:0.8rem;color:#777;margin-bottom:8px">One-time setup on the GPU server. Skip if already done.</div>
+      <div style="font-size:0.78rem;color:#999;margin-bottom:2px">Create Python environment</div>
+      ${tCmd('tgCmd0a', cmdSetupEnv)}
+      <div style="font-size:0.78rem;color:#999;margin-bottom:2px">Clone and install LeRobot</div>
+      ${tCmd('tgCmd0b', cmdSetupInstall)}
+      <div style="font-size:0.78rem;color:#999;margin-bottom:2px">Install dependencies</div>
+      ${tCmd('tgCmd0c', cmdSetupDeps)}
+    </div>
+
+    <div id="tg-download" class="tg-panel" style="${activeTab==='tg-download'?'':'display:none'}">
+      <div style="font-size:0.8rem;color:#777;margin-bottom:8px">Run on the GPU server to download the dataset locally.</div>
+      ${tCmd('tgCmd1', cmdDownload)}
+    </div>
+
+    <div id="tg-train" class="tg-panel" style="${activeTab==='tg-train'?'':'display:none'}">
+      <div style="display:flex;align-items:center;gap:16px;margin-bottom:12px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:12px">
+          <label style="display:flex;align-items:center;gap:4px;font-size:0.84rem;cursor:pointer">
+            <input type="radio" name="tgModel" value="act" ${selectedModel==='act'?'checked':''} onchange="_tgBuildCmds(false)"> ACT
+          </label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:0.84rem;cursor:pointer">
+            <input type="radio" name="tgModel" value="smolvla" ${selectedModel==='smolvla'?'checked':''} onchange="_tgBuildCmds(false)"> SmolVLA
+          </label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:0.84rem;cursor:pointer">
+            <input type="radio" name="tgModel" value="pi05" ${selectedModel==='pi05'?'checked':''} onchange="_tgBuildCmds(false)"> pi0.5
+          </label>
+        </div>
+        <label style="display:flex;align-items:center;gap:5px;font-size:0.82rem;cursor:pointer;margin-left:auto">
+          <input type="checkbox" id="tgWandbCheck" ${wb ? 'checked' : ''} onchange="_tgBuildCmds(false)">
+          <span style="font-weight:600">W&B Logging</span>
+        </label>
+      </div>
+      <div style="font-size:0.8rem;color:#777;margin-bottom:8px">${trainDesc}</div>
+      ${tCmd('tgCmdTrain', trainCmd)}
+    </div>
+
+    <div id="tg-resume" class="tg-panel" style="${activeTab==='tg-resume'?'':'display:none'}">
+      <div style="font-size:0.8rem;color:#777;margin-bottom:8px">Resume from the last saved checkpoint if training was interrupted.</div>
+      ${tCmd('tgCmdResume', cmdResume)}
+    </div>
+
+    <div id="tg-tips" class="tg-panel" style="${activeTab==='tg-tips'?'':'display:none'}">
+      <div style="background:#f0f7ff;border-radius:6px;padding:10px 14px;font-size:0.82rem;color:#333">
+        <strong>Tips:</strong>
+        <ul style="margin:4px 0 0 0;padding-left:18px;line-height:1.8">
+          <li>Adjust <code>--batch_size</code> based on GPU memory (32 for 24GB, 16 for 12GB, 8 for 8GB)</li>
+          <li>Adjust <code>--steps</code> based on dataset size (~100-200 steps per episode)</li>
+          <li>Checkpoints are saved every <code>--save_freq</code> steps (default 20,000)</li>
+          <li>Output model will be saved to the <code>outputs/train/</code> directory</li>
+          <li>Model will be pushed to HF as <code>${policyRepo}</code></li>
+          <li>Use <code>nvidia-smi</code> to monitor GPU memory usage during training</li>
+          <li>For multi-GPU: <code>torchrun --nproc-per-node=NUM_GPUS lerobot-train ...</code></li>
+        </ul>
+      </div>
+    </div>
+
+    <div style="margin-top:14px;text-align:right">
+      <button class="btn btn-sm" onclick="closeModal()" style="background:#f0f0f0;color:#555">Close</button>
+    </div>
+  `;
+  if (firstRender) {
+    document.querySelector('.modal').classList.add('modal-wide');
+    document.getElementById('modalOverlay').classList.add('visible');
+  }
+}
+
+function tgSwitchTab(btn, panelId) {
+  window._tgActiveTab = panelId;
+  btn.parentElement.querySelectorAll('.tg-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  btn.closest('#modalBody').querySelectorAll('.tg-panel').forEach(p => p.style.display = 'none');
+  document.getElementById(panelId).style.display = 'block';
+}
+
+function vizCopyCmd(elId) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  const clone = el.cloneNode(true);
+  const btn = clone.querySelector('button');
+  if (btn) btn.remove();
+  const text = clone.textContent.trim();
+  const origBtn = el.querySelector('button');
+  const onSuccess = () => { if (origBtn) { origBtn.textContent = 'Copied!'; setTimeout(() => { origBtn.textContent = 'Copy'; }, 1500); } };
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(text).then(onSuccess).catch(() => { const ta = document.createElement('textarea'); ta.value = text; ta.style.cssText = 'position:fixed;left:-9999px'; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); onSuccess(); });
+  } else {
+    const ta = document.createElement('textarea'); ta.value = text; ta.style.cssText = 'position:fixed;left:-9999px'; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); onSuccess();
+  }
+}
+
+// ============================================================
+// Inference (command guide)
+// ============================================================
+function vizShowInference() {
+  const name = vizCurrentDataset;
+  if (!name) return;
+  const c = appConfig;
+  const user = c.hf_username || '<HF_USERNAME>';
+
+  window._infCtx = { name, user };
+  _infBuildCmds(true);
+}
+
+function _infBuildCmds(firstRender) {
+  const { name, user } = window._infCtx;
+  const copyBtnHtml = (id) => `<button style="position:absolute;top:8px;right:8px;background:#555;color:#fff;border:none;border-radius:4px;padding:3px 10px;font-size:0.7rem;cursor:pointer;z-index:1" onclick="vizCopyCmd('${id}')">Copy</button>`;
+  const esc = (s) => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const tCmd = (id, content) => `<div class="train-cmd" id="${id}">${copyBtnHtml(id)}${esc(content)}</div>`;
+
+  const selectedModel = firstRender ? 'act' : (document.querySelector('input[name="infModel"]:checked')?.value || 'act');
+
+  const modelPrefix = { act: 'act', smolvla: 'smolvla', pi05: 'pi05' }[selectedModel];
+  const modelRepo = `${user}/${modelPrefix}_${name}`;
+  const modelDir = `./models/${modelPrefix}_${name}`;
+
+  const modelDescs = {
+    act: 'ACT — lightweight, good for simple tasks. GPU: 8GB+',
+    smolvla: 'SmolVLA — Vision-Language-Action with language conditioning. GPU: 16GB+',
+    pi05: 'pi0.5 — large VLA model, best generalization. GPU: 24GB+',
+  };
+  const modelDesc = modelDescs[selectedModel];
+
+  // Tab state
+  if (firstRender) window._infActiveTab = 'inf-setup';
+  const activeTab = window._infActiveTab || 'inf-setup';
+
+  // Setup commands
+  const cmdSetupEnv = [
+    `conda create -n lerobot python=3.12 -y`,
+    `conda activate lerobot`,
+    ``,
+    `conda install ffmpeg=7.1.1 -c conda-forge -y`,
+  ].join('\n');
+
+  const cmdSetupInstall = [
+    `git clone https://github.com/huggingface/lerobot.git`,
+    `cd lerobot`,
+    ``,
+    `pip install -e .`,
+    ``,
+    `pip install -e ".[all]"`,
+  ].join('\n');
+
+  const cmdSetupDeps = [
+    `pip install "transformers>=4.48.0" "huggingface-hub>=1.5.0,<2.0"`,
+    `pip install python-dateutil`,
+  ].join('\n');
+
+  const cmdSetupConfig = [
+    `# Robot port (check with: ls /dev/ttyACM* or ls /dev/tty.usbmodem*)`,
+    `# Linux:  /dev/ttyACM0`,
+    `# Mac:    /dev/tty.usbmodem5B141122411`,
+    ``,
+    `# Camera indices (check with: ls /dev/video* or use v4l2-ctl --list-devices)`,
+    `# top camera:   0`,
+    `# wrist camera: 1`,
+  ].join('\n');
+
+  // Download model
+  const cmdDownload = [
+    `conda activate lerobot`,
+    ``,
+    `hf download ${modelRepo} \\`,
+    `  --repo-type model \\`,
+    `  --local-dir ${modelDir}`,
+  ].join('\n');
+
+  // Basic rollout
+  const cmdRollout = [
+    `conda activate lerobot`,
+    `cd lerobot`,
+    ``,
+    `lerobot-rollout \\`,
+    `  --robot.type=so101_follower \\`,
+    `  --robot.port=/dev/ttyACM0 \\`,
+    `  --robot.id=my_follower_arm \\`,
+    `  --robot.cameras='{`,
+    `    top: {type: opencv, index_or_path: 0, width: 320, height: 240, fps: 30},`,
+    `    wrist: {type: opencv, index_or_path: 1, width: 320, height: 240, fps: 30}`,
+    `  }' \\`,
+    `  --task="<your task instruction>" \\`,
+    `  --fps=30 \\`,
+    `  --display_data=true \\`,
+    `  --policy.path=${modelDir}`,
+  ].join('\n');
+
+  // fakecam_params.json example (keys match fakecam_inject.py build_cam_params / build_light_params)
+  const cmdFakecamParams = [
+    `{`,
+    `  "rotation": 5.0,`,
+    `  "translate_x": 2.0,`,
+    `  "translate_y": -1.0,`,
+    `  "scale": 1.05,`,
+    `  "shear": 0.0,`,
+    `  "brightness": 1.1,`,
+    `  "contrast": 1.0,`,
+    `  "saturation": 1.0,`,
+    `  "noise": 3.0,`,
+    `  "blur": 0`,
+    `}`,
+  ].join('\n');
+
+  // Rollout with fakecam augmentation
+  const cmdFakecam = [
+    `conda activate lerobot`,
+    `cd lerobot`,
+    ``,
+    `python fakecam_inject.py --params-file fakecam_params.json -- \\`,
+    `  lerobot-rollout \\`,
+    `  --robot.type=so101_follower \\`,
+    `  --robot.port=/dev/ttyACM0 \\`,
+    `  --robot.id=my_follower_arm \\`,
+    `  --robot.cameras='{`,
+    `    top: {type: opencv, index_or_path: 0, width: 320, height: 240, fps: 30},`,
+    `    wrist: {type: opencv, index_or_path: 1, width: 320, height: 240, fps: 30}`,
+    `  }' \\`,
+    `  --task="<your task instruction>" \\`,
+    `  --fps=30 \\`,
+    `  --display_data=true \\`,
+    `  --policy.path=${modelDir}`,
+  ].join('\n');
+
+  const body = document.getElementById('modalBody');
+  body.innerHTML = `
+    <h3 style="margin:0 0 4px">Inference Guide</h3>
+    <p style="margin-bottom:12px;font-size:0.88rem;color:#555">Commands for running inference with <strong>${name}</strong> model on GPU server.</p>
+
+    <div style="display:flex;gap:0;margin-bottom:14px;border-bottom:2px solid #e0e0e0">
+      <button class="tg-tab ${activeTab==='inf-setup'?'active':''}" onclick="infSwitchTab(this,'inf-setup')">Setup</button>
+      <button class="tg-tab ${activeTab==='inf-download'?'active':''}" onclick="infSwitchTab(this,'inf-download')">Download Model</button>
+      <button class="tg-tab ${activeTab==='inf-rollout'?'active':''}" onclick="infSwitchTab(this,'inf-rollout')">Inference</button>
+      <button class="tg-tab ${activeTab==='inf-fakecam'?'active':''}" onclick="infSwitchTab(this,'inf-fakecam')">Inference + Augmentation</button>
+      <button class="tg-tab ${activeTab==='inf-tips'?'active':''}" onclick="infSwitchTab(this,'inf-tips')">Tips</button>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+      <label style="display:flex;align-items:center;gap:4px;font-size:0.84rem;cursor:pointer">
+        <input type="radio" name="infModel" value="act" ${selectedModel==='act'?'checked':''} onchange="_infBuildCmds(false)"> ACT
+      </label>
+      <label style="display:flex;align-items:center;gap:4px;font-size:0.84rem;cursor:pointer">
+        <input type="radio" name="infModel" value="smolvla" ${selectedModel==='smolvla'?'checked':''} onchange="_infBuildCmds(false)"> SmolVLA
+      </label>
+      <label style="display:flex;align-items:center;gap:4px;font-size:0.84rem;cursor:pointer">
+        <input type="radio" name="infModel" value="pi05" ${selectedModel==='pi05'?'checked':''} onchange="_infBuildCmds(false)"> pi0.5
+      </label>
+      <span style="font-size:0.8rem;color:#777;margin-left:8px">${modelDesc}</span>
+    </div>
+
+    <div id="inf-setup" class="tg-panel" style="${activeTab==='inf-setup'?'':'display:none'}">
+      <div style="font-size:0.8rem;color:#777;margin-bottom:8px">One-time setup on the GPU server. Skip if already done (same env as Training).</div>
+      <div style="font-size:0.78rem;color:#999;margin-bottom:2px">Create Python environment</div>
+      ${tCmd('infSetup0a', cmdSetupEnv)}
+      <div style="font-size:0.78rem;color:#999;margin-bottom:2px">Clone and install LeRobot</div>
+      ${tCmd('infSetup0b', cmdSetupInstall)}
+      <div style="font-size:0.78rem;color:#999;margin-bottom:2px">Install dependencies</div>
+      ${tCmd('infSetup0c', cmdSetupDeps)}
+      <div style="font-size:0.78rem;color:#999;margin-bottom:2px">Check robot port & camera indices</div>
+      ${tCmd('infSetup0d', cmdSetupConfig)}
+    </div>
+
+    <div id="inf-download" class="tg-panel" style="${activeTab==='inf-download'?'':'display:none'}">
+      <div style="font-size:0.8rem;color:#777;margin-bottom:8px">Download the trained model from Hugging Face Hub.</div>
+      ${tCmd('infCmd1', cmdDownload)}
+    </div>
+
+    <div id="inf-rollout" class="tg-panel" style="${activeTab==='inf-rollout'?'':'display:none'}">
+      <div style="font-size:0.8rem;color:#777;margin-bottom:8px">Run inference with <code>lerobot-rollout</code> on the robot. Adjust robot port, camera indices, and task instruction to match your setup.</div>
+      ${tCmd('infCmd2', cmdRollout)}
+    </div>
+
+    <div id="inf-fakecam" class="tg-panel" style="${activeTab==='inf-fakecam'?'':'display:none'}">
+      <div style="font-size:0.8rem;color:#777;margin-bottom:8px">
+        Run inference with <strong>fake camera augmentation</strong> using <code>fakecam_inject.py</code>.
+        This monkey-patches <code>cv2.VideoCapture</code> to apply real-time augmentation (rotation, brightness, noise, etc.)
+        to camera frames before they reach the policy — useful for testing robustness to visual perturbations.
+        The script supports hot-reload: edit <code>fakecam_params.json</code> while running and changes apply automatically.
+      </div>
+      <div style="font-size:0.78rem;color:#999;margin-bottom:2px">1. Create <code>fakecam_params.json</code> in the lerobot directory</div>
+      ${tCmd('infCmd3a', cmdFakecamParams)}
+      <div style="font-size:0.78rem;color:#999;margin-bottom:2px;margin-top:10px">2. Run with fakecam wrapper</div>
+      ${tCmd('infCmd3b', cmdFakecam)}
+    </div>
+
+    <div id="inf-tips" class="tg-panel" style="${activeTab==='inf-tips'?'':'display:none'}">
+      <div style="background:#f0f7ff;border-radius:6px;padding:10px 14px;font-size:0.82rem;color:#333">
+        <strong>Tips:</strong>
+        <ul style="margin:4px 0 0 0;padding-left:18px;line-height:1.8">
+          <li>Adjust <code>--robot.port</code> to your serial port (e.g. <code>/dev/ttyACM0</code> on Linux, <code>/dev/tty.usbmodem*</code> on Mac)</li>
+          <li>Change camera <code>index_or_path</code> to match your camera indices (check with <code>ls /dev/video*</code>)</li>
+          <li>Set <code>--task</code> to the task instruction the model was trained on</li>
+          <li>Adjust <code>--fps</code> to match training FPS (default 30)</li>
+          <li>Use <code>--display_data=false</code> for headless servers (no GUI)</li>
+          <li>For SmolVLA/pi0.5, ensure the task text matches training language for best results</li>
+          <li><code>fakecam_inject.py</code> works with any command — it wraps the process transparently</li>
+          <li>Augmentation params can be hot-reloaded: edit the JSON file while inference is running</li>
+          <li>Alternative: load params from server with <code>--from-server http://localhost:8000</code></li>
+          <li>Use <code>nvidia-smi</code> to monitor GPU memory during inference</li>
+        </ul>
+      </div>
+    </div>
+
+    <div style="margin-top:14px;text-align:right">
+      <button class="btn btn-sm" onclick="closeModal()" style="background:#f0f0f0;color:#555">Close</button>
+    </div>
+  `;
+  if (firstRender) {
+    document.querySelector('.modal').classList.add('modal-wide');
+    document.getElementById('modalOverlay').classList.add('visible');
+  }
+}
+
+function infSwitchTab(btn, panelId) {
+  window._infActiveTab = panelId;
+  btn.parentElement.querySelectorAll('.tg-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  btn.closest('#modalBody').querySelectorAll('.tg-panel').forEach(p => p.style.display = 'none');
+  document.getElementById(panelId).style.display = 'block';
+}
+
+// ============================================================
+// Remove Idle
+// ============================================================
+function vizRemoveIdle() {
+  if (!vizCurrentDataset) return;
+  const name = vizCurrentDataset;
+  const body = document.getElementById('modalBody');
+  body.innerHTML = `
+    <h3 style="margin-top:0;margin-bottom:8px">Remove Idle Frames</h3>
+    <p style="font-size:0.85rem;color:#666;margin-bottom:14px">Remove idle frames from start/end of each episode in <strong>${name}</strong>.</p>
+    <div style="margin-bottom:14px">
+      <label class="form-label">New Dataset Name</label>
+      <input type="text" id="removeIdleName" class="form-input" value="${name}_removeidle">
+    </div>
+    <div style="display:flex;gap:10px;align-items:center">
+      <button class="btn" id="removeIdleBtn" onclick="doRemoveIdle()" style="background:#00897b">Remove Idle</button>
+      <button class="btn btn-sm btn-ghost" onclick="closeModal()">Cancel</button>
+      <span id="removeIdleStatus" style="font-size:0.85rem;color:#888"></span>
+    </div>
+  `;
+  document.getElementById('modalOverlay').classList.add('visible');
+  document.getElementById('removeIdleName').focus();
+  document.getElementById('removeIdleName').select();
+}
+
+async function doRemoveIdle() {
+  const name = vizCurrentDataset;
+  const newName = document.getElementById('removeIdleName').value.trim();
+  if (!newName) { alert('Enter a dataset name'); return; }
+  const btn = document.getElementById('removeIdleBtn');
+  const st = document.getElementById('removeIdleStatus');
+  btn.disabled = true;
+  st.textContent = 'Processing...';
+  st.style.color = '#0097a7';
+  try {
+    const r = await fetch(`/api/datasets/${name}/remove-idle`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ new_name: newName }),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      st.textContent = `Created "${d.name}": ${d.episodes} eps, removed ${d.removed_frames} idle frames`;
+      st.style.color = '#34a853';
+      vizRefreshDatasets();
+      setTimeout(() => closeModal(), 2000);
+    } else {
+      st.textContent = d.error; st.style.color = '#d93025';
+      btn.disabled = false;
+    }
+  } catch(e) { st.textContent = e.message; st.style.color = '#d93025'; btn.disabled = false; }
+}
+
+// ============================================================
+// Random & Generate
+// ============================================================
+async function vizShowRandomSubset() {
+  if (!vizCurrentDataset) return;
+  const name = vizCurrentDataset;
+  try {
+    const r = await fetch(`/api/datasets/${name}/info`);
+    const d = await r.json();
+    if (!d.ok) { alert('Error loading dataset'); return; }
+    const totalEps = d.info.total_episodes || 0;
+
+    const body = document.getElementById('modalBody');
+    body.innerHTML = `
+      <h3 style="margin-top:0;margin-bottom:14px">Random Sample</h3>
+      <p style="font-size:0.85rem;color:#666;margin-bottom:14px">Create a new dataset by randomly sampling episodes from <strong>${name}</strong> (${totalEps} episodes).</p>
+      <div style="margin-bottom:10px">
+        <label class="form-label">Number of Episodes</label>
+        <input type="number" id="randNumEps" class="form-input" value="${Math.min(10, totalEps)}" min="1" max="${totalEps}" style="width:150px" oninput="document.getElementById('randNewName').value='${name}_rand'+this.value">
+      </div>
+      <div style="margin-bottom:14px">
+        <label class="form-label">New Dataset Name</label>
+        <input type="text" id="randNewName" class="form-input" value="${name}_rand${Math.min(10, totalEps)}">
+      </div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <button class="btn" id="randBtn" onclick="doRandomSubset('${name}')" style="background:#00695c">Generate</button>
+        <button class="btn btn-sm btn-ghost" onclick="closeModal()">Cancel</button>
+        <span id="randStatus" style="font-size:0.85rem;color:#888"></span>
+      </div>
+    `;
+    document.getElementById('modalOverlay').classList.add('visible');
+  } catch(e) { alert(e.message); }
+}
+
+async function doRandomSubset(name) {
+  const numEps = parseInt(document.getElementById('randNumEps').value);
+  const newName = document.getElementById('randNewName').value.trim();
+  const st = document.getElementById('randStatus');
+  if (!newName) { st.textContent = 'Enter a name'; st.style.color = '#d93025'; return; }
+
+  const btn = document.getElementById('randBtn');
+  btn.disabled = true;
+  st.textContent = 'Generating...'; st.style.color = '#00695c';
+  try {
+    const r = await fetch(`/api/datasets/${name}/random-subset`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ num_episodes: numEps, new_name: newName }),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      closeModal();
+      alert(`Created "${d.name}" with ${d.episodes} episodes (${d.frames} frames)`);
+      vizRefreshDatasets();
+    } else {
+      st.textContent = d.error; st.style.color = '#d93025';
+    }
+  } catch(e) { st.textContent = e.message; st.style.color = '#d93025'; }
+  btn.disabled = false;
+}
+
+// ============================================================
+// Augment
+// ============================================================
+async function vizShowAugment() {
+  if (!vizCurrentDataset) return;
+  const name = vizCurrentDataset;
+  try {
+    const r = await fetch(`/api/datasets/${name}/info`);
+    const d = await r.json();
+    if (!d.ok) { alert('Error loading dataset'); return; }
+    const totalEps = d.info.total_episodes || 0;
+    const defaultTarget = Math.max(totalEps * 3, 10);
+
+    const body = document.getElementById('modalBody');
+    body.innerHTML = `
+      <h3 style="margin-top:0;margin-bottom:14px">Data Augmentation</h3>
+      <p style="font-size:0.85rem;color:#666;margin-bottom:14px">Create augmented copies of <strong>${name}</strong> (${totalEps} episodes) with random variations.</p>
+
+      <div style="display:flex;gap:24px;align-items:flex-start">
+        <!-- Left column: Settings -->
+        <div style="flex:1;min-width:0">
+
+          <div style="margin-bottom:10px">
+            <label class="form-label">Target Episodes</label>
+            <div style="display:inline-flex;border:1px solid #d0d0d0;border-radius:6px;overflow:hidden;margin-bottom:6px">
+              ${[2,3,4,5,6,7,8,9,10].map((x,i,a) => `<button class="aug-mult" data-mult="${x}" onclick="setAugMult(${x},${totalEps},'${name}')" style="padding:4px 10px;font-size:0.8rem;cursor:pointer;border:none;${i<a.length-1?'border-right:1px solid #e0e0e0;':''}background:${x===3?'#e8f0fe':'#fff'};color:${x===3?'#1a73e8':'#555'}">${x}x</button>`).join('')}
+            </div>
+            <div style="display:flex;gap:6px;align-items:center">
+              <input type="number" id="augTargetEps" class="form-input" value="${defaultTarget}" min="1" style="width:120px"
+                oninput="updateAugName('${name}');updateAugSummary(${totalEps})">
+              <span style="font-size:0.78rem;color:#888">episodes</span>
+              <span style="font-size:0.78rem;color:#aaa;margin-left:auto" id="augMultLabel">(${Math.round(defaultTarget/totalEps)}x of ${totalEps})</span>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:10px;margin-bottom:10px;align-items:end">
+            <div style="flex:1">
+              <label class="form-label">Mode</label>
+              <div style="display:flex;gap:4px">
+                <button class="btn-xs aug-mode-btn" id="augModeRandom" onclick="setAugMode('random')" style="background:#e8f0fe;color:#1a73e8;border:1px solid #90caf9;padding:4px 12px">Random</button>
+                <button class="btn-xs aug-mode-btn" id="augModeFix" onclick="setAugMode('fix')" style="background:#fff;color:#555;border:1px solid #d0d0d0;padding:4px 12px">Fix</button>
+              </div>
+              <div style="font-size:0.72rem;color:#aaa;margin-top:2px" id="augModeDesc">Random source episode per augmented copy</div>
+            </div>
+            <div style="flex:1">
+              <label class="form-label">Intensity (1-5)</label>
+              <input type="range" id="augIntensity" min="1" max="5" value="3" style="width:100%">
+              <div style="display:flex;justify-content:space-between;font-size:0.75rem;color:#999"><span>Subtle</span><span>Strong</span></div>
+            </div>
+          </div>
+
+          <div style="margin-bottom:10px">
+            <label class="form-label">New Dataset Name</label>
+            <input type="text" id="augNewName" class="form-input" value="${name}_aug${defaultTarget}">
+          </div>
+
+          <!-- Parameter summary -->
+          <div id="augSummary" style="background:#f0f0f0;border-radius:6px;padding:8px 12px;margin-bottom:14px;font-size:0.75rem;color:#666;font-family:'SF Mono','Menlo',monospace;line-height:1.6"></div>
+
+          <div style="margin-bottom:14px">
+            <label class="form-label" style="margin-bottom:8px">Techniques</label>
+
+            <div style="background:#f9f9f9;border:1px solid #e0e0e0;border-radius:6px;padding:10px;margin-bottom:8px">
+              <label style="font-weight:600;font-size:0.85rem"><input type="checkbox" id="augCamEnabled" checked> Camera Shift</label>
+              <div style="font-size:0.75rem;color:#999;margin:2px 0 4px 18px">Simulate camera position changes by applying geometric transforms</div>
+              <div style="padding-left:18px;margin-top:4px;font-size:0.82rem;color:#666">
+                <div style="display:flex;align-items:baseline;gap:4px;margin-bottom:2px"><label><input type="checkbox" id="augCamPersp" checked> Perspective</label><span style="font-size:0.72rem;color:#aaa">— warp as if camera angle shifted</span></div>
+                <div style="display:flex;align-items:baseline;gap:4px;margin-bottom:2px"><label><input type="checkbox" id="augCamAffine" checked> Affine</label><span style="font-size:0.72rem;color:#aaa">— random scale/rotate/translate</span></div>
+                <div style="display:flex;align-items:baseline;gap:4px"><label><input type="checkbox" id="augCamRot" checked> Rotation</label><span style="font-size:0.72rem;color:#aaa">— rotate by small random angle</span></div>
+              </div>
+              <div id="augCamParams"></div>
+            </div>
+
+            <div style="background:#f9f9f9;border:1px solid #e0e0e0;border-radius:6px;padding:10px;margin-bottom:8px">
+              <label style="font-weight:600;font-size:0.85rem"><input type="checkbox" id="augLightEnabled" checked> Light & Quality</label>
+              <div style="font-size:0.75rem;color:#999;margin:2px 0 4px 18px">Simulate different lighting and camera quality</div>
+              <div style="padding-left:18px;margin-top:4px;font-size:0.82rem;color:#666">
+                <div style="display:flex;align-items:baseline;gap:4px;margin-bottom:2px"><label><input type="checkbox" id="augLightBright" checked> Brightness</label><span style="font-size:0.72rem;color:#aaa">— random brightness shift</span></div>
+                <div style="display:flex;align-items:baseline;gap:4px;margin-bottom:2px"><label><input type="checkbox" id="augLightContrast" checked> Contrast</label><span style="font-size:0.72rem;color:#aaa">— adjust exposure level</span></div>
+                <div style="display:flex;align-items:baseline;gap:4px;margin-bottom:2px"><label><input type="checkbox" id="augLightSat" checked> Saturation</label><span style="font-size:0.72rem;color:#aaa">— adjust color intensity</span></div>
+                <div style="display:flex;align-items:baseline;gap:4px;margin-bottom:2px"><label><input type="checkbox" id="augLightJitter" checked> Color Jitter</label><span style="font-size:0.72rem;color:#aaa">— shift RGB channels</span></div>
+                <div style="display:flex;align-items:baseline;gap:4px;margin-bottom:2px"><label><input type="checkbox" id="augLightShadow"> Shadow</label><span style="font-size:0.72rem;color:#aaa">— add random dark regions</span></div>
+                <div style="display:flex;align-items:baseline;gap:4px;margin-bottom:2px"><label><input type="checkbox" id="augLightNoise"> Noise</label><span style="font-size:0.72rem;color:#aaa">— Gaussian noise (low-quality cam)</span></div>
+                <div style="display:flex;align-items:baseline;gap:4px"><label><input type="checkbox" id="augLightBlur"> Blur</label><span style="font-size:0.72rem;color:#aaa">— Gaussian blur (out-of-focus)</span></div>
+              </div>
+              <div id="augLightParams"></div>
+            </div>
+
+            <div style="background:#f9f9f9;border:1px solid #e0e0e0;border-radius:6px;padding:10px;margin-bottom:8px">
+              <label style="font-weight:600;font-size:0.85rem"><input type="checkbox" id="augRobotEnabled" checked> Robot Noise</label>
+              <div style="font-size:0.75rem;color:#999;margin:2px 0 4px 18px">Add random noise to action/state for policy robustness</div>
+              <div style="padding-left:18px;margin-top:4px;font-size:0.82rem;color:#666">
+                <div style="display:flex;align-items:baseline;gap:4px;margin-bottom:2px"><label><input type="checkbox" id="augRobotStart" checked> Random Start Trim</label><span style="font-size:0.72rem;color:#aaa">— trim frames from start</span></div>
+                <div style="display:flex;align-items:baseline;gap:4px;margin-bottom:2px"><label><input type="checkbox" id="augRobotOffset" checked> Initial Noise</label><span style="font-size:0.72rem;color:#aaa">— offset initial joint positions</span></div>
+                <div style="display:flex;align-items:baseline;gap:4px"><label><input type="checkbox" id="augRobotJitter" checked> Trajectory Jitter</label><span style="font-size:0.72rem;color:#aaa">— noise on action values</span></div>
+              </div>
+              <div id="augRobotParams"></div>
+            </div>
+
+            <div style="background:#f9f9f9;border:1px solid #e0e0e0;border-radius:6px;padding:10px">
+              <label style="font-weight:600;font-size:0.85rem"><input type="checkbox" id="augLangEnabled"> Language Variation</label>
+              <div style="font-size:0.75rem;color:#999;margin:2px 0 4px 18px">Create task text variations for language-conditioned policies</div>
+              <div style="padding-left:18px;margin-top:4px;font-size:0.82rem;color:#666">
+                <div style="display:flex;align-items:baseline;gap:4px;margin-bottom:2px"><label><input type="checkbox" id="augLangSyn" checked> Synonym/Paraphrase</label><span style="font-size:0.72rem;color:#aaa">— rephrase task description</span></div>
+                <div style="display:flex;align-items:baseline;gap:4px"><label><input type="checkbox" id="augLangTypo"> Typo</label><span style="font-size:0.72rem;color:#aaa">— small typos for robustness</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:10px;align-items:center">
+            <button class="btn" id="augBtn" onclick="doAugment('${name}')" style="background:#7b1fa2">Start Augmentation</button>
+            <button class="btn btn-sm btn-ghost" onclick="closeModal()">Cancel</button>
+          </div>
+          <div id="augProgress" style="display:none;margin-top:12px">
+            <div style="background:#e0e0e0;border-radius:4px;height:8px;overflow:hidden;margin-bottom:6px">
+              <div id="augProgressBar" style="height:100%;background:#7b1fa2;width:0%;transition:width 0.3s"></div>
+            </div>
+            <span id="augStatus" style="font-size:0.85rem;color:#888"></span>
+          </div>
+
+        </div>
+
+        <!-- Right column: Preview -->
+        <div style="flex:1;min-width:0;position:sticky;top:0">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+            <label class="form-label" style="margin:0">Preview (5 random episodes)</label>
+            <span id="augPreviewStatus" style="font-size:0.72rem;color:#aaa"></span>
+          </div>
+          <div id="augPreviewGrid" style="display:grid;grid-template-columns:1fr;gap:10px;min-height:60px;background:#fafafa;border:1px solid #e0e0e0;border-radius:8px;padding:10px">
+            <div style="text-align:center;color:#bbb;font-size:0.8rem;padding:16px 0">Loading preview...</div>
+          </div>
+        </div>
+      </div>
+    `;
+    document.querySelector('.modal').classList.add('modal-wide');
+    document.getElementById('modalOverlay').classList.add('visible');
+
+    // Setup preview auto-update
+    window._augPreviewName = name;
+    window._augTotalEps = totalEps;
+    _augPreviewUpdate();
+    updateAugSummary(totalEps);
+    renderAugParams();
+
+    // Listen for changes on all augment controls
+    const watchIds = ['augCamEnabled','augCamPersp','augCamAffine','augCamRot',
+      'augLightEnabled','augLightBright','augLightContrast','augLightSat','augLightJitter','augLightShadow','augLightNoise','augLightBlur',
+      'augRobotEnabled','augRobotStart','augRobotOffset','augRobotJitter',
+      'augLangEnabled','augLangSyn','augLangTypo','augIntensity'];
+    watchIds.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.addEventListener('input', _augPreviewDebounce);
+        el.addEventListener('input', () => { updateAugSummary(totalEps); renderAugParams(); });
+      }
+    });
+
+  } catch(e) { alert(e.message); }
+}
+
+window._augMode = 'random';
+
+function setAugMult(mult, totalEps, name) {
+  const target = mult * totalEps;
+  document.getElementById('augTargetEps').value = target;
+  document.querySelectorAll('.aug-mult').forEach(b => {
+    const m = parseInt(b.dataset.mult);
+    b.style.background = m === mult ? '#e8f0fe' : '#fff';
+    b.style.color = m === mult ? '#1a73e8' : '#555';
+  });
+  updateAugName(name);
+  updateAugSummary(totalEps);
+}
+
+function updateAugName(name) {
+  const v = document.getElementById('augTargetEps').value;
+  document.getElementById('augNewName').value = name + '_aug' + v;
+}
+
+function setAugMode(mode) {
+  window._augMode = mode;
+  document.getElementById('augModeRandom').style.background = mode === 'random' ? '#e8f0fe' : '#fff';
+  document.getElementById('augModeRandom').style.color = mode === 'random' ? '#1a73e8' : '#555';
+  document.getElementById('augModeRandom').style.borderColor = mode === 'random' ? '#90caf9' : '#d0d0d0';
+  document.getElementById('augModeFix').style.background = mode === 'fix' ? '#e8f0fe' : '#fff';
+  document.getElementById('augModeFix').style.color = mode === 'fix' ? '#1a73e8' : '#555';
+  document.getElementById('augModeFix').style.borderColor = mode === 'fix' ? '#90caf9' : '#d0d0d0';
+  document.getElementById('augModeDesc').textContent = mode === 'random'
+    ? 'Random source episode per augmented copy'
+    : 'Even copies per episode (each episode gets equal augmentations)';
+  updateAugSummary(window._augTotalEps || 0);
+  renderAugParams();
+}
+
+function updateAugSummary(totalEps) {
+  window._augTotalEps = totalEps;
+  const target = parseInt(document.getElementById('augTargetEps')?.value || 0);
+  const intensity = parseInt(document.getElementById('augIntensity')?.value || 3);
+  const mode = window._augMode || 'random';
+  const mult = totalEps > 0 ? (target / totalEps).toFixed(1) : '?';
+  document.getElementById('augMultLabel').textContent = `(${mult}x of ${totalEps})`;
+
+  const intensityLabels = {1:'Subtle',2:'Light',3:'Medium',4:'Strong',5:'Extreme'};
+  const techs = [];
+  if (document.getElementById('augCamEnabled')?.checked) techs.push('Camera Shift');
+  if (document.getElementById('augLightEnabled')?.checked) techs.push('Light & Quality');
+  if (document.getElementById('augRobotEnabled')?.checked) techs.push('Robot Noise');
+  if (document.getElementById('augLangEnabled')?.checked) techs.push('Language');
+
+  const copiesPerEp = mode === 'fix' && totalEps > 0 ? Math.floor(target / totalEps) : '~' + (totalEps > 0 ? Math.round(target / totalEps) : '?');
+
+  const el = document.getElementById('augSummary');
+  if (el) el.innerHTML = [
+    `<b>Source:</b> ${totalEps} eps &rarr; <b>Target:</b> ${target} eps (${mult}x)`,
+    `<b>Mode:</b> ${mode === 'random' ? 'Random pick' : 'Fix ('+copiesPerEp+' copies/ep)'}`,
+    `<b>Intensity:</b> ${intensity}/5 (${intensityLabels[intensity] || 'Medium'})`,
+    `<b>Techniques:</b> ${techs.length ? techs.join(', ') : 'None'}`,
+  ].join('<br>');
+}
+
+function renderAugParams() {
+  const mode = window._augMode || 'random';
+  const intensity = parseInt(document.getElementById('augIntensity')?.value || 3);
+  const SM = {1:0.25, 2:0.5, 3:1.0, 4:1.5, 5:2.0};
+  const s = SM[intensity] || 1.0;
+  const pstyle = 'margin-top:6px;padding:6px 10px;background:#eef6ff;border-radius:4px;font-size:0.72rem;color:#555;line-height:1.9';
+
+  function rng(label, lo, hi, unit) {
+    return `<div><span style="color:#888">${label}:</span> <b>${lo}</b> ~ <b>${hi}</b>${unit||''}</div>`;
+  }
+  function sld(id, label, min, max, step, val, unit) {
+    return `<div style="display:flex;align-items:center;gap:4px;margin-bottom:1px">
+      <span style="min-width:76px;color:#888">${label}:</span>
+      <input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${val}" style="flex:1;height:12px" oninput="this.nextElementSibling.textContent=this.value;_augPreviewDebounce()">
+      <span style="min-width:38px;text-align:right;font-family:'SF Mono',monospace;font-size:0.72rem">${val}</span><span style="color:#aaa;font-size:0.68rem">${unit||''}</span>
+    </div>`;
+  }
+
+  // Camera
+  const camEl = document.getElementById('augCamParams');
+  if (camEl) {
+    const en = document.getElementById('augCamEnabled')?.checked;
+    const persp = en && document.getElementById('augCamPersp')?.checked;
+    const affine = en && document.getElementById('augCamAffine')?.checked;
+    const rot = en && document.getElementById('augCamRot')?.checked;
+    let h = '';
+    if (en && (persp||affine||rot)) {
+      if (mode==='random') {
+        if (persp) h += rng('Perspective', (-0.05*s).toFixed(3), (0.05*s).toFixed(3));
+        if (affine) { h += rng('Translate', (-0.04*s).toFixed(3), (0.04*s).toFixed(3)); h += rng('Scale', (1-0.05*s).toFixed(2), (1+0.05*s).toFixed(2)); h += rng('Shear', (-0.03*s).toFixed(3), (0.03*s).toFixed(3)); }
+        if (rot) h += rng('Rotation', (-4*s).toFixed(1), (4*s).toFixed(1), '°');
+      } else {
+        if (persp) h += sld('afPersp','Perspective', 0, 0.10, 0.005, (0.03*s).toFixed(3));
+        if (affine) { h += sld('afTx','Translate X', -0.08, 0.08, 0.005, (0.02*s).toFixed(3)); h += sld('afTy','Translate Y', -0.08, 0.08, 0.005, (0.02*s).toFixed(3)); h += sld('afScale','Scale', 0.90, 1.10, 0.01, '1.00'); h += sld('afShear','Shear', -0.06, 0.06, 0.005, '0.000'); }
+        if (rot) h += sld('afAngle','Rotation', -8, 8, 0.5, (2*s).toFixed(1), '°');
+      }
+    }
+    camEl.innerHTML = h ? `<div style="${pstyle}">${h}</div>` : '';
+  }
+
+  // Light
+  const lightEl = document.getElementById('augLightParams');
+  if (lightEl) {
+    const en = document.getElementById('augLightEnabled')?.checked;
+    let h = '';
+    if (en) {
+      const bright = document.getElementById('augLightBright')?.checked;
+      const contrast = document.getElementById('augLightContrast')?.checked;
+      const sat = document.getElementById('augLightSat')?.checked;
+      const jitter = document.getElementById('augLightJitter')?.checked;
+      const shadow = document.getElementById('augLightShadow')?.checked;
+      const noise = document.getElementById('augLightNoise')?.checked;
+      const blur = document.getElementById('augLightBlur')?.checked;
+      if (bright||contrast||sat||jitter||shadow||noise||blur) {
+        if (mode==='random') {
+          if (bright) h += rng('Brightness', (1-0.25*s).toFixed(2), (1+0.25*s).toFixed(2));
+          if (contrast) h += rng('Contrast', (1-0.25*s).toFixed(2), (1+0.25*s).toFixed(2));
+          if (sat) h += rng('Saturation', (1-0.35*s).toFixed(2), (1+0.35*s).toFixed(2));
+          if (jitter) h += rng('Hue shift', '-'+Math.round(8*s), '+'+Math.round(8*s));
+          if (shadow) h += rng('Shadow α', (0.15*s).toFixed(2), (0.4*s).toFixed(2));
+          if (noise) h += rng('Noise σ', (4*s).toFixed(1), (12*s).toFixed(1));
+          if (blur) h += rng('Blur σ', (0.4*s).toFixed(1), (1.2*s).toFixed(1));
+        } else {
+          if (bright) h += sld('afBright','Brightness', 0.50, 1.50, 0.01, (1+0.12*s).toFixed(2));
+          if (contrast) h += sld('afContrast','Contrast', 0.50, 1.50, 0.01, (1+0.12*s).toFixed(2));
+          if (sat) h += sld('afSat','Saturation', 0.30, 1.70, 0.01, (1+0.15*s).toFixed(2));
+          if (jitter) h += sld('afHue','Hue shift', -16, 16, 1, Math.round(4*s));
+          if (shadow) h += sld('afShadowA','Shadow α', 0.0, 0.80, 0.05, (0.25*s).toFixed(2));
+          if (noise) h += sld('afNoiseS','Noise σ', 0, 24, 0.5, (8*s).toFixed(1));
+          if (blur) h += sld('afBlurS','Blur σ', 0.0, 2.4, 0.1, (0.8*s).toFixed(1));
+        }
+      }
+    }
+    lightEl.innerHTML = h ? `<div style="${pstyle}">${h}</div>` : '';
+  }
+
+  // Robot
+  const robotEl = document.getElementById('augRobotParams');
+  if (robotEl) {
+    const en = document.getElementById('augRobotEnabled')?.checked;
+    let h = '';
+    if (en) {
+      const trim = document.getElementById('augRobotStart')?.checked;
+      const offset = document.getElementById('augRobotOffset')?.checked;
+      const jit = document.getElementById('augRobotJitter')?.checked;
+      if (trim||offset||jit) {
+        if (mode==='random') {
+          if (trim) h += rng('Start trim', '1', Math.max(1,Math.round(30*0.12*s)).toString(), ' frames');
+          if (offset) h += rng('Offset σ', '0', (1.5*s).toFixed(1), '°');
+          if (jit) h += rng('Jitter σ', (0.3*s).toFixed(1), (1.0*s).toFixed(1));
+        } else {
+          if (trim) h += sld('afTrim','Trim', 0, 30, 1, Math.min(Math.round(3*s), 20), ' frames');
+          if (offset) h += sld('afOffsetS','Offset σ', 0.0, 3.0, 0.1, (1.0*s).toFixed(1), '°');
+          if (jit) h += sld('afJitterS','Jitter σ', 0.0, 2.0, 0.1, (0.5*s).toFixed(1));
+        }
+      }
+    }
+    robotEl.innerHTML = h ? `<div style="${pstyle}">${h}</div>` : '';
+  }
+}
+
+function getFixedParams() {
+  if (window._augMode !== 'fix') return null;
+  const rv = id => { const el = document.getElementById(id); return el ? parseFloat(el.value) : null; };
+  return {
+    camera: { persp_mag: rv('afPersp'), tx: rv('afTx'), ty: rv('afTy'), shear: rv('afShear'), scale: rv('afScale'), angle: rv('afAngle') },
+    light: { brightness: rv('afBright'), contrast: rv('afContrast'), saturation: rv('afSat'), hue: rv('afHue'), sat_off: rv('afSatOff'), shadow_a: rv('afShadowA'), noise_s: rv('afNoiseS'), blur_s: rv('afBlurS') },
+    robot: { trim: rv('afTrim'), offset_sigma: rv('afOffsetS'), jitter_s: rv('afJitterS') },
+  };
+}
+
+let _augPreviewTimer = null;
+function _augPreviewDebounce() {
+  clearTimeout(_augPreviewTimer);
+  _augPreviewTimer = setTimeout(_augPreviewUpdate, 300);
+}
+
+async function _augPreviewUpdate() {
+  const name = window._augPreviewName;
+  if (!name) return;
+  const grid = document.getElementById('augPreviewGrid');
+  const st = document.getElementById('augPreviewStatus');
+  if (!grid) return;
+  st.textContent = 'Generating...';
+
+  const intensity = parseInt(document.getElementById('augIntensity')?.value || 3);
+  const techniques = {
+    camera: {
+      enabled: document.getElementById('augCamEnabled')?.checked,
+      perspective: document.getElementById('augCamPersp')?.checked,
+      affine: document.getElementById('augCamAffine')?.checked,
+      rotation: document.getElementById('augCamRot')?.checked,
+    },
+    light: {
+      enabled: document.getElementById('augLightEnabled')?.checked,
+      brightness: document.getElementById('augLightBright')?.checked,
+      contrast: document.getElementById('augLightContrast')?.checked,
+      saturation: document.getElementById('augLightSat')?.checked,
+      color_jitter: document.getElementById('augLightJitter')?.checked,
+      shadow: document.getElementById('augLightShadow')?.checked,
+      noise: document.getElementById('augLightNoise')?.checked,
+      blur: document.getElementById('augLightBlur')?.checked,
+    },
+  };
+
+  try {
+    const r = await fetch(`/api/datasets/${name}/augment-preview`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ intensity, techniques, count: 5, mode: window._augMode || 'random', fixed_params: getFixedParams() }),
+    });
+    const d = await r.json();
+    if (!d.ok || !d.previews?.length) {
+      grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:#d93025;font-size:0.8rem;padding:16px 0">No preview available</div>';
+      st.textContent = '';
+      return;
+    }
+    grid.innerHTML = d.previews.map(p => `
+      <div style="display:flex;gap:6px;align-items:center">
+        <div style="font-size:0.68rem;color:#999;min-width:32px;text-align:right">Ep ${p.ep}</div>
+        <div style="flex:1;text-align:center">
+          <img src="data:image/jpeg;base64,${p.original}" style="width:100%;border-radius:4px;border:1px solid #e0e0e0">
+          <div style="font-size:0.6rem;color:#aaa">original</div>
+        </div>
+        <div style="font-size:0.8rem;color:#ccc">&rarr;</div>
+        <div style="flex:1;text-align:center">
+          <img src="data:image/jpeg;base64,${p.augmented}" style="width:100%;border-radius:4px;border:2px solid #7b1fa2">
+          <div style="font-size:0.6rem;color:#7b1fa2">augmented</div>
+        </div>
+      </div>
+    `).join('');
+    st.textContent = '';
+  } catch(e) {
+    st.textContent = 'Error';
+    console.error(e);
+  }
+}
+
+async function doAugment(name) {
+  const targetEps = parseInt(document.getElementById('augTargetEps').value);
+  const newName = document.getElementById('augNewName').value.trim();
+  const intensity = parseInt(document.getElementById('augIntensity').value);
+  if (!newName) { alert('Enter a dataset name'); return; }
+
+  const techniques = {
+    camera_shift: {
+      enabled: document.getElementById('augCamEnabled').checked,
+      perspective: document.getElementById('augCamPersp').checked,
+      affine: document.getElementById('augCamAffine').checked,
+      rotation: document.getElementById('augCamRot').checked,
+    },
+    light_quality: {
+      enabled: document.getElementById('augLightEnabled').checked,
+      brightness: document.getElementById('augLightBright').checked,
+      contrast: document.getElementById('augLightContrast').checked,
+      saturation: document.getElementById('augLightSat').checked,
+      color_jitter: document.getElementById('augLightJitter').checked,
+      shadow: document.getElementById('augLightShadow').checked,
+      noise: document.getElementById('augLightNoise').checked,
+      blur: document.getElementById('augLightBlur').checked,
+    },
+    robot_noise: {
+      enabled: document.getElementById('augRobotEnabled').checked,
+      random_start: document.getElementById('augRobotStart').checked,
+      initial_noise: document.getElementById('augRobotOffset').checked,
+      trajectory_jitter: document.getElementById('augRobotJitter').checked,
+    },
+    language: {
+      enabled: document.getElementById('augLangEnabled').checked,
+      synonym: document.getElementById('augLangSyn').checked,
+      paraphrase: document.getElementById('augLangSyn').checked,
+      typo: document.getElementById('augLangTypo').checked,
+    },
+  };
+
+  const btn = document.getElementById('augBtn');
+  btn.disabled = true;
+  document.getElementById('augProgress').style.display = '';
+
+  try {
+    const r = await fetch(`/api/datasets/${name}/augment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: newName, target_episodes: targetEps, intensity, techniques, mode: window._augMode || 'random', fixed_params: getFixedParams() }),
+    });
+    const d = await r.json();
+    if (!d.ok) {
+      document.getElementById('augStatus').textContent = d.error;
+      document.getElementById('augStatus').style.color = '#d93025';
+      btn.disabled = false;
+      return;
+    }
+    const poll = setInterval(async () => {
+      try {
+        const sr = await fetch('/api/augment/status');
+        const sd = await sr.json();
+        document.getElementById('augProgressBar').style.width = sd.progress + '%';
+        document.getElementById('augStatus').textContent = sd.status;
+        if (sd.error) {
+          document.getElementById('augStatus').style.color = '#d93025';
+          clearInterval(poll);
+          btn.disabled = false;
+        } else if (!sd.running && sd.progress >= 100) {
+          clearInterval(poll);
+          closeModal();
+          alert(`Augmentation complete! Created "${newName}"`);
+          vizRefreshDatasets();
+        }
+      } catch(e) { /* ignore */ }
+    }, 1000);
+  } catch(e) {
+    document.getElementById('augStatus').textContent = e.message;
+    document.getElementById('augStatus').style.color = '#d93025';
+    btn.disabled = false;
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+data/
+augment_configs/
+config.json
+.DS_Store
