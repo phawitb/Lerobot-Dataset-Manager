@@ -2062,7 +2062,7 @@ function vizShowDownloadHf() {
     <h3 style="margin-top:0;margin-bottom:8px">Download Dataset from Hugging Face</h3>
     <p style="font-size:0.85rem;color:#666;margin-bottom:14px">Run these commands in your terminal to download a dataset.</p>
     <div style="margin-bottom:10px">
-      <label class="form-label">Repository ID</label>
+      <label class="form-label">Repository ID <span style="font-weight:400;color:#999;font-size:0.8rem">e.g. ${user}/my_dataset</span></label>
       <input type="text" id="dlHfRepo" class="form-input" placeholder="${user}/dataset-name" value="${user}/" oninput="updateDlCmd()">
     </div>
     <div id="dlCmdArea">
