@@ -7,15 +7,31 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; color: #333; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; color: #333; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+
+    /* ── Top Navigation ── */
+    .top-nav { display: flex; align-items: center; background: #fff; border-bottom: 2px solid #e0e0e0; padding: 0 20px; height: 48px; flex-shrink: 0; }
+    .top-nav .app-title { font-size: 1rem; font-weight: 800; color: #1a73e8; margin-right: 32px; white-space: nowrap; }
+    .top-nav-tab { padding: 12px 24px; font-size: 0.9rem; font-weight: 600; color: #888; background: none; border: none; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px; transition: all 0.15s; }
+    .top-nav-tab:hover { color: #1a73e8; }
+    .top-nav-tab.active { color: #1a73e8; border-bottom-color: #1a73e8; }
+    .page-container { display: none; flex: 1; overflow: hidden; }
+    .page-container.active { display: flex; flex-direction: column; }
 
     /* ── Layout ── */
-    .app-layout { display: flex; height: 100vh; overflow: hidden; }
+    .app-layout { display: flex; flex: 1; overflow: hidden; }
 
     /* ── Sidebar (left) ── */
     .sidebar { width: 330px; min-width: 200px; flex-shrink: 0; background: #fff; border-right: 1px solid #e0e0e0; display: flex; flex-direction: column; overflow-y: auto; }
-    .sidebar-header { padding: 14px 16px 12px; border-bottom: 1px solid #e0e0e0; }
-    .sidebar-header h1 { font-size: 1.05rem; font-weight: 800; color: #1a73e8; }
+    .sidebar-header { padding: 10px 16px 8px; }
+
+    /* ── Guide page ── */
+    .guide-page { flex: 1; overflow-y: auto; padding: 28px 40px; max-width: 1100px; }
+    .guide-page h2 { font-size: 1.15rem; font-weight: 700; color: #333; margin-bottom: 4px; }
+    .guide-page .guide-subtitle { font-size: 0.88rem; color: #888; margin-bottom: 20px; }
+    .guide-ds-row { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; padding: 12px 16px; background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; }
+    .guide-ds-row label { font-size: 0.82rem; font-weight: 600; color: #555; white-space: nowrap; }
+    .guide-ds-row select { padding: 7px 10px; border-radius: 6px; border: 1px solid #d0d0d0; font-size: 0.85rem; min-width: 220px; }
 
     .sidebar-section { padding: 12px 16px 8px; }
     .sidebar-section-title { font-size: 0.68rem; font-weight: 700; color: #999; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; }
@@ -116,13 +132,21 @@
 </head>
 <body>
 
+<!-- ═══════════ Top Navigation ═══════════ -->
+<div class="top-nav">
+  <span class="app-title">LeRobot Dataset Manager</span>
+  <button class="top-nav-tab active" onclick="switchPage('dataset')">Dataset</button>
+  <button class="top-nav-tab" onclick="switchPage('training')">Training</button>
+  <button class="top-nav-tab" onclick="switchPage('inference')">Inference</button>
+</div>
+
+<!-- ═══════════ Page: Dataset ═══════════ -->
+<div class="page-container active" id="page-dataset">
 <div class="app-layout">
 
   <!-- ═══════════ Sidebar ═══════════ -->
   <div class="sidebar">
-    <div class="sidebar-header">
-      <h1>LeRobot Dataset Manager</h1>
-    </div>
+    <div class="sidebar-header"></div>
 
     <!-- Dataset selector -->
     <div class="sidebar-section">
@@ -245,12 +269,33 @@
 
       <div class="sidebar-section-title" style="margin-top:10px;margin-bottom:4px">Export</div>
       <button class="sb-btn" onclick="vizShowPushHf()"><span class="sb-icon">&#128640;</span> Push to HF</button>
-      <button class="sb-btn" onclick="vizShowTraining()"><span class="sb-icon">&#129504;</span> Training</button>
-      <button class="sb-btn" onclick="vizShowInference()"><span class="sb-icon">&#9654;</span> Inference</button>
 
     </div>
   </div>
 
+</div>
+</div><!-- end page-dataset -->
+
+<!-- ═══════════ Page: Training ═══════════ -->
+<div class="page-container" id="page-training">
+  <div class="guide-page" id="trainingPageContent">
+    <div style="text-align:center;color:#999;padding:60px 0">
+      <div style="font-size:2.5rem;margin-bottom:10px;opacity:0.5">&#129504;</div>
+      <h3 style="color:#666;margin-bottom:6px">Training Guide</h3>
+      <p style="font-size:0.85rem">Select a dataset to generate training commands.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ Page: Inference ═══════════ -->
+<div class="page-container" id="page-inference">
+  <div class="guide-page" id="inferencePageContent">
+    <div style="text-align:center;color:#999;padding:60px 0">
+      <div style="font-size:2.5rem;margin-bottom:10px;opacity:0.5">&#9654;</div>
+      <h3 style="color:#666;margin-bottom:6px">Inference Guide</h3>
+      <p style="font-size:0.85rem">Select a dataset to generate inference commands.</p>
+    </div>
+  </div>
 </div>
 
 <!-- Modal -->
@@ -338,8 +383,18 @@ const vizSegmentPlugin = {
 })();
 
 // ============================================================
-// Editable tasks
+// Page switching
 // ============================================================
+function switchPage(pageId) {
+  document.querySelectorAll('.page-container').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.top-nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-' + pageId).classList.add('active');
+  document.querySelectorAll('.top-nav-tab').forEach(t => {
+    if (t.textContent.trim().toLowerCase() === pageId) t.classList.add('active');
+  });
+  if (pageId === 'training') renderTrainingPage();
+  if (pageId === 'inference') renderInferencePage();
+}
 
 // ============================================================
 // Modal
@@ -1879,149 +1934,77 @@ function vizShowPushHf() {
 }
 
 // ============================================================
-// Training (command guide)
+// Training (full page)
 // ============================================================
-function vizShowTraining() {
-  const name = vizCurrentDataset;
-  if (!name) return;
+function renderTrainingPage(forceRender) {
+  const container = document.getElementById('trainingPageContent');
+  const name = document.getElementById('tgDatasetSelect')?.value || vizCurrentDataset;
   const c = appConfig;
   const user = c.hf_username || '<HF_USERNAME>';
+
+  if (!name) {
+    container.innerHTML = `
+      <h2>Training Guide</h2>
+      <p class="guide-subtitle">Select a dataset to generate training commands.</p>
+      <div class="guide-ds-row">
+        <label>Dataset</label>
+        <select id="tgDatasetSelect" onchange="renderTrainingPage(true)"><option value="">-- Select --</option></select>
+      </div>
+      <div style="text-align:center;color:#999;padding:40px 0">
+        <div style="font-size:2.5rem;margin-bottom:10px;opacity:0.5">&#129504;</div>
+        <p style="font-size:0.85rem">Choose a dataset above to see training commands.</p>
+      </div>`;
+    _populateGuideSelect('tgDatasetSelect');
+    return;
+  }
+
   const repoId = `${user}/${name}`;
   const dataDir = `./data/${name}`;
+  const wb = forceRender ? (document.getElementById('tgWandbCheck')?.checked ?? true) : true;
+  const selectedModel = forceRender ? (document.querySelector('input[name="tgModel"]:checked')?.value || 'act') : 'act';
 
-  window._tgCtx = { name, repoId, dataDir, user };
-  _tgBuildCmds(true);
-}
-
-function _tgBuildCmds(firstRender) {
-  const { name, repoId, dataDir, user } = window._tgCtx;
-  const wb = firstRender ? true : document.getElementById('tgWandbCheck')?.checked;
   const copyBtnHtml = (id) => `<button style="position:absolute;top:8px;right:8px;background:#555;color:#fff;border:none;border-radius:4px;padding:3px 10px;font-size:0.7rem;cursor:pointer;z-index:1" onclick="vizCopyCmd('${id}')">Copy</button>`;
+  const esc = (s) => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const tCmd = (id, content) => `<div class="train-cmd" id="${id}">${copyBtnHtml(id)}${esc(content)}</div>`;
 
   const wbLines = wb
     ? [`  --wandb.enable=true \\`, `  --wandb.project=LeRobot-Experiments \\`]
     : [`  --wandb.enable=false \\`];
 
-  // Setup commands
-  const cmdSetupEnv = [
-    `conda create -n lerobot python=3.12 -y`,
-    `conda activate lerobot`,
-    ``,
-    `conda install ffmpeg=7.1.1 -c conda-forge -y`,
-  ].join('\n');
-
-  const cmdSetupInstall = [
-    `git clone https://github.com/huggingface/lerobot.git`,
-    `cd lerobot`,
-    ``,
-    `pip install -e .`,
-    ``,
-    `pip install -e ".[all]"`,
-    `pip install wandb`,
-  ].join('\n');
-
-  const cmdSetupDeps = [
-    `pip install "transformers>=4.48.0" "huggingface-hub>=1.5.0,<2.0"`,
-    `pip install python-dateutil`,
-  ].join('\n');
-
-  // Download
-  const cmdDownload = [
-    `conda activate lerobot`,
-    ``,
-    `hf download ${repoId} \\`,
-    `  --repo-type dataset \\`,
-    `  --local-dir ${dataDir}`,
-  ].join('\n');
-
-  // Training commands per model
-  const selectedModel = firstRender ? 'act' : (document.querySelector('input[name="tgModel"]:checked')?.value || 'act');
+  const cmdSetupEnv = `conda create -n lerobot python=3.12 -y\nconda activate lerobot\n\nconda install ffmpeg=7.1.1 -c conda-forge -y`;
+  const cmdSetupInstall = `git clone https://github.com/huggingface/lerobot.git\ncd lerobot\n\npip install -e .\n\npip install -e ".[all]"\npip install wandb`;
+  const cmdSetupDeps = `pip install "transformers>=4.48.0" "huggingface-hub>=1.5.0,<2.0"\npip install python-dateutil`;
+  const cmdDownload = `conda activate lerobot\n\nhf download ${repoId} \\\n  --repo-type dataset \\\n  --local-dir ${dataDir}`;
 
   const actRepo = `${user}/act_${name}`;
-  const cmdACT = [
-    `lerobot-train \\`,
-    `  --policy.type=act \\`,
-    `  --dataset.repo_id=${repoId} \\`,
-    `  --dataset.root=${dataDir} \\`,
-    `  --steps=100000 \\`,
-    `  --batch_size=32 \\`,
-    `  --policy.optimizer_lr=0.00001 \\`,
-    ...wbLines,
-    `  --output_dir=outputs/train/act_${name} \\`,
-    `  --job_name=act_${name} \\`,
-    `  --policy.repo_id=${actRepo}`,
-  ].join('\n');
-
+  const cmdACT = [`lerobot-train \\`,`  --policy.type=act \\`,`  --dataset.repo_id=${repoId} \\`,`  --dataset.root=${dataDir} \\`,`  --steps=100000 \\`,`  --batch_size=32 \\`,`  --policy.optimizer_lr=0.00001 \\`,...wbLines,`  --output_dir=outputs/train/act_${name} \\`,`  --job_name=act_${name} \\`,`  --policy.repo_id=${actRepo}`].join('\n');
   const smolvlaRepo = `${user}/smolvla_${name}`;
-  const cmdSmolVLA = [
-    `lerobot-train \\`,
-    `  --policy.type=smolvla \\`,
-    `  --dataset.repo_id=${repoId} \\`,
-    `  --dataset.root=${dataDir} \\`,
-    `  --policy.load_vlm_weights=true \\`,
-    `  --policy.vlm_model_name="HuggingFaceTB/SmolVLM2-500M-Video-Instruct" \\`,
-    `  --policy.train_expert_only=true \\`,
-    `  --policy.freeze_vision_encoder=true \\`,
-    `  --policy.use_amp=true \\`,
-    `  --steps=100000 \\`,
-    `  --batch_size=32 \\`,
-    `  --policy.optimizer_lr=0.0001 \\`,
-    ...wbLines,
-    `  --output_dir=outputs/train/smolvla_${name} \\`,
-    `  --job_name=smolvla_${name} \\`,
-    `  --policy.repo_id=${smolvlaRepo}`,
-  ].join('\n');
-
+  const cmdSmolVLA = [`lerobot-train \\`,`  --policy.type=smolvla \\`,`  --dataset.repo_id=${repoId} \\`,`  --dataset.root=${dataDir} \\`,`  --policy.load_vlm_weights=true \\`,`  --policy.vlm_model_name="HuggingFaceTB/SmolVLM2-500M-Video-Instruct" \\`,`  --policy.train_expert_only=true \\`,`  --policy.freeze_vision_encoder=true \\`,`  --policy.use_amp=true \\`,`  --steps=100000 \\`,`  --batch_size=32 \\`,`  --policy.optimizer_lr=0.0001 \\`,...wbLines,`  --output_dir=outputs/train/smolvla_${name} \\`,`  --job_name=smolvla_${name} \\`,`  --policy.repo_id=${smolvlaRepo}`].join('\n');
   const pi05Repo = `${user}/pi05_${name}`;
-  const cmdPi05 = [
-    `lerobot-train \\`,
-    `  --policy.type=pi0 \\`,
-    `  --policy.pretrained_path=lerobot/pi0.5 \\`,
-    `  --dataset.repo_id=${repoId} \\`,
-    `  --dataset.root=${dataDir} \\`,
-    `  --policy.use_amp=true \\`,
-    `  --steps=100000 \\`,
-    `  --batch_size=16 \\`,
-    ...wbLines,
-    `  --output_dir=outputs/train/pi05_${name} \\`,
-    `  --job_name=pi05_${name} \\`,
-    `  --policy.repo_id=${pi05Repo}`,
-  ].join('\n');
+  const cmdPi05 = [`lerobot-train \\`,`  --policy.type=pi0 \\`,`  --policy.pretrained_path=lerobot/pi0.5 \\`,`  --dataset.repo_id=${repoId} \\`,`  --dataset.root=${dataDir} \\`,`  --policy.use_amp=true \\`,`  --steps=100000 \\`,`  --batch_size=16 \\`,...wbLines,`  --output_dir=outputs/train/pi05_${name} \\`,`  --job_name=pi05_${name} \\`,`  --policy.repo_id=${pi05Repo}`].join('\n');
 
   const modelCmds = { act: cmdACT, smolvla: cmdSmolVLA, pi05: cmdPi05 };
-  const modelDescs = {
-    act: 'Action Chunking with Transformers — lightweight, good for simple tasks. GPU: 8GB+',
-    smolvla: 'SmolVLA — Vision-Language-Action model with language conditioning. GPU: 16GB+',
-    pi05: 'Physical Intelligence pi0.5 — large VLA model, best generalization. GPU: 24GB+',
-  };
+  const modelDescs = { act: 'ACT — lightweight, good for simple tasks. GPU: 8GB+', smolvla: 'SmolVLA — Vision-Language-Action with language conditioning. GPU: 16GB+', pi05: 'pi0.5 — large VLA model, best generalization. GPU: 24GB+' };
   const trainCmd = modelCmds[selectedModel];
   const trainDesc = modelDescs[selectedModel];
   const policyRepo = { act: actRepo, smolvla: smolvlaRepo, pi05: pi05Repo }[selectedModel];
 
-  // Resume — full train command + resume flags appended
-  const outDir = `outputs/train/${selectedModel === 'pi05' ? 'pi05' : selectedModel}_${name}`;
-  const cmdResume = trainCmd.replace(
-    `  --policy.repo_id=${policyRepo}`,
-    `  --policy.repo_id=${policyRepo} \\\n  --resume=true \\\n  --checkpoint_path=${outDir}/checkpoints/last`
-  );
-
-  // Tab state
-  if (firstRender) window._tgActiveTab = 'tg-setup';
+  if (!forceRender) window._tgActiveTab = 'tg-setup';
   const activeTab = window._tgActiveTab || 'tg-setup';
 
-  const esc = (s) => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  const tCmd = (id, content) => `<div class="train-cmd" id="${id}">${copyBtnHtml(id)}${esc(content)}</div>`;
+  container.innerHTML = `
+    <h2>Training Guide</h2>
+    <p class="guide-subtitle">Commands for training <strong>${name}</strong> on GPU server.</p>
 
-  const body = document.getElementById('modalBody');
-  body.innerHTML = `
-    <h3 style="margin:0 0 4px">Training Guide</h3>
-    <p style="margin-bottom:12px;font-size:0.88rem;color:#555">Commands for training <strong>${name}</strong> on GPU server.</p>
+    <div class="guide-ds-row">
+      <label>Dataset</label>
+      <select id="tgDatasetSelect" onchange="renderTrainingPage(true)"></select>
+    </div>
 
     <div style="display:flex;gap:0;margin-bottom:14px;border-bottom:2px solid #e0e0e0">
       <button class="tg-tab ${activeTab==='tg-setup'?'active':''}" onclick="tgSwitchTab(this,'tg-setup')">Setup</button>
       <button class="tg-tab ${activeTab==='tg-download'?'active':''}" onclick="tgSwitchTab(this,'tg-download')">Download</button>
       <button class="tg-tab ${activeTab==='tg-train'?'active':''}" onclick="tgSwitchTab(this,'tg-train')">Training</button>
-      <button class="tg-tab ${activeTab==='tg-resume'?'active':''}" onclick="tgSwitchTab(this,'tg-resume')">Resume</button>
       <button class="tg-tab ${activeTab==='tg-tips'?'active':''}" onclick="tgSwitchTab(this,'tg-tips')">Tips</button>
     </div>
 
@@ -2043,28 +2026,17 @@ function _tgBuildCmds(firstRender) {
     <div id="tg-train" class="tg-panel" style="${activeTab==='tg-train'?'':'display:none'}">
       <div style="display:flex;align-items:center;gap:16px;margin-bottom:12px;flex-wrap:wrap">
         <div style="display:flex;align-items:center;gap:12px">
-          <label style="display:flex;align-items:center;gap:4px;font-size:0.84rem;cursor:pointer">
-            <input type="radio" name="tgModel" value="act" ${selectedModel==='act'?'checked':''} onchange="_tgBuildCmds(false)"> ACT
-          </label>
-          <label style="display:flex;align-items:center;gap:4px;font-size:0.84rem;cursor:pointer">
-            <input type="radio" name="tgModel" value="smolvla" ${selectedModel==='smolvla'?'checked':''} onchange="_tgBuildCmds(false)"> SmolVLA
-          </label>
-          <label style="display:flex;align-items:center;gap:4px;font-size:0.84rem;cursor:pointer">
-            <input type="radio" name="tgModel" value="pi05" ${selectedModel==='pi05'?'checked':''} onchange="_tgBuildCmds(false)"> pi0.5
-          </label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:0.84rem;cursor:pointer"><input type="radio" name="tgModel" value="act" ${selectedModel==='act'?'checked':''} onchange="renderTrainingPage(true)"> ACT</label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:0.84rem;cursor:pointer"><input type="radio" name="tgModel" value="smolvla" ${selectedModel==='smolvla'?'checked':''} onchange="renderTrainingPage(true)"> SmolVLA</label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:0.84rem;cursor:pointer"><input type="radio" name="tgModel" value="pi05" ${selectedModel==='pi05'?'checked':''} onchange="renderTrainingPage(true)"> pi0.5</label>
         </div>
         <label style="display:flex;align-items:center;gap:5px;font-size:0.82rem;cursor:pointer;margin-left:auto">
-          <input type="checkbox" id="tgWandbCheck" ${wb ? 'checked' : ''} onchange="_tgBuildCmds(false)">
+          <input type="checkbox" id="tgWandbCheck" ${wb ? 'checked' : ''} onchange="renderTrainingPage(true)">
           <span style="font-weight:600">W&B Logging</span>
         </label>
       </div>
       <div style="font-size:0.8rem;color:#777;margin-bottom:8px">${trainDesc}</div>
       ${tCmd('tgCmdTrain', trainCmd)}
-    </div>
-
-    <div id="tg-resume" class="tg-panel" style="${activeTab==='tg-resume'?'':'display:none'}">
-      <div style="font-size:0.8rem;color:#777;margin-bottom:8px">Resume from the last saved checkpoint if training was interrupted.</div>
-      ${tCmd('tgCmdResume', cmdResume)}
     </div>
 
     <div id="tg-tips" class="tg-panel" style="${activeTab==='tg-tips'?'':'display:none'}">
@@ -2081,22 +2053,16 @@ function _tgBuildCmds(firstRender) {
         </ul>
       </div>
     </div>
-
-    <div style="margin-top:14px;text-align:right">
-      <button class="btn btn-sm" onclick="closeModal()" style="background:#f0f0f0;color:#555">Close</button>
-    </div>
   `;
-  if (firstRender) {
-    document.querySelector('.modal').classList.add('modal-wide');
-    document.getElementById('modalOverlay').classList.add('visible');
-  }
+  _populateGuideSelect('tgDatasetSelect', name);
 }
 
 function tgSwitchTab(btn, panelId) {
   window._tgActiveTab = panelId;
   btn.parentElement.querySelectorAll('.tg-tab').forEach(t => t.classList.remove('active'));
   btn.classList.add('active');
-  btn.closest('#modalBody').querySelectorAll('.tg-panel').forEach(p => p.style.display = 'none');
+  const page = document.getElementById('trainingPageContent');
+  page.querySelectorAll('.tg-panel').forEach(p => p.style.display = 'none');
   document.getElementById(panelId).style.display = 'block';
 }
 
@@ -2117,141 +2083,68 @@ function vizCopyCmd(elId) {
 }
 
 // ============================================================
-// Inference (command guide)
+// Inference (full page)
 // ============================================================
-function vizShowInference() {
-  const name = vizCurrentDataset;
-  if (!name) return;
+function renderInferencePage(forceRender) {
+  const container = document.getElementById('inferencePageContent');
+  const name = document.getElementById('infDatasetSelect')?.value || vizCurrentDataset;
   const c = appConfig;
   const user = c.hf_username || '<HF_USERNAME>';
 
-  window._infCtx = { name, user };
-  _infBuildCmds(true);
-}
+  if (!name) {
+    container.innerHTML = `
+      <h2>Inference Guide</h2>
+      <p class="guide-subtitle">Select a dataset to generate inference commands.</p>
+      <div class="guide-ds-row">
+        <label>Dataset</label>
+        <select id="infDatasetSelect" onchange="renderInferencePage(true)"><option value="">-- Select --</option></select>
+      </div>
+      <div style="text-align:center;color:#999;padding:40px 0">
+        <div style="font-size:2.5rem;margin-bottom:10px;opacity:0.5">&#9654;</div>
+        <p style="font-size:0.85rem">Choose a dataset above to see inference commands.</p>
+      </div>`;
+    _populateGuideSelect('infDatasetSelect');
+    return;
+  }
 
-function _infBuildCmds(firstRender) {
-  const { name, user } = window._infCtx;
+  const selectedModel = forceRender ? (document.querySelector('input[name="infModel"]:checked')?.value || 'act') : 'act';
+  const modelPrefix = { act: 'act', smolvla: 'smolvla', pi05: 'pi05' }[selectedModel];
+  const modelRepo = `${user}/${modelPrefix}_${name}`;
+  const modelDir = `./models/${modelPrefix}_${name}`;
+  const modelDescs = { act: 'ACT — lightweight, good for simple tasks. GPU: 8GB+', smolvla: 'SmolVLA — Vision-Language-Action with language conditioning. GPU: 16GB+', pi05: 'pi0.5 — large VLA model, best generalization. GPU: 24GB+' };
+  const modelDesc = modelDescs[selectedModel];
+
   const copyBtnHtml = (id) => `<button style="position:absolute;top:8px;right:8px;background:#555;color:#fff;border:none;border-radius:4px;padding:3px 10px;font-size:0.7rem;cursor:pointer;z-index:1" onclick="vizCopyCmd('${id}')">Copy</button>`;
   const esc = (s) => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   const tCmd = (id, content) => `<div class="train-cmd" id="${id}">${copyBtnHtml(id)}${esc(content)}</div>`;
 
-  const selectedModel = firstRender ? 'act' : (document.querySelector('input[name="infModel"]:checked')?.value || 'act');
+  const cmdSetupEnv = `conda create -n lerobot python=3.12 -y\nconda activate lerobot\n\nconda install ffmpeg=7.1.1 -c conda-forge -y`;
+  const cmdSetupInstall = `git clone https://github.com/huggingface/lerobot.git\ncd lerobot\n\npip install -e .\n\npip install -e ".[all]"`;
+  const cmdSetupDeps = `pip install "transformers>=4.48.0" "huggingface-hub>=1.5.0,<2.0"\npip install python-dateutil`;
+  const cmdSetupConfig = `# Robot port (check with: ls /dev/ttyACM* or ls /dev/tty.usbmodem*)\n# Linux:  /dev/ttyACM0\n# Mac:    /dev/tty.usbmodem5B141122411\n\n# Camera indices (check with: ls /dev/video* or use v4l2-ctl --list-devices)\n# top camera:   0\n# wrist camera: 1`;
+  const cmdDownload = `conda activate lerobot\ncd Lerobot-Dataset-Manager\n\nhf download ${modelRepo} \\\n  --repo-type model \\\n  --local-dir ${modelDir}`;
+  const cmdRollout = `conda activate lerobot\ncd Lerobot-Dataset-Manager\n\nlerobot-rollout \\\n  --robot.type=so101_follower \\\n  --robot.port=/dev/ttyACM0 \\\n  --robot.id=my_follower_arm \\\n  --robot.cameras='{\n    top: {type: opencv, index_or_path: 0, width: 320, height: 240, fps: 30},\n    wrist: {type: opencv, index_or_path: 1, width: 320, height: 240, fps: 30}\n  }' \\\n  --task="<your task instruction>" \\\n  --fps=30 \\\n  --display_data=true \\\n  --policy.path=${modelDir}`;
+  const cmdFakecamParams = `{\n  "rotation": 5.0,\n  "translate_x": 2.0,\n  "translate_y": -1.0,\n  "scale": 1.05,\n  "shear": 0.0,\n  "brightness": 1.1,\n  "contrast": 1.0,\n  "saturation": 1.0,\n  "noise": 3.0,\n  "blur": 0\n}`;
+  const cmdFakecam = `conda activate lerobot\ncd Lerobot-Dataset-Manager\n\npython fakecam_inject.py --params-file fakecam_params.json -- \\\n  lerobot-rollout \\\n  --robot.type=so101_follower \\\n  --robot.port=/dev/ttyACM0 \\\n  --robot.id=my_follower_arm \\\n  --robot.cameras='{\n    top: {type: opencv, index_or_path: 0, width: 320, height: 240, fps: 30},\n    wrist: {type: opencv, index_or_path: 1, width: 320, height: 240, fps: 30}\n  }' \\\n  --task="<your task instruction>" \\\n  --fps=30 \\\n  --display_data=true \\\n  --policy.path=${modelDir}`;
 
-  const modelPrefix = { act: 'act', smolvla: 'smolvla', pi05: 'pi05' }[selectedModel];
-  const modelRepo = `${user}/${modelPrefix}_${name}`;
-  const modelDir = `./models/${modelPrefix}_${name}`;
+  const modelSelector = `<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+    <label style="display:flex;align-items:center;gap:4px;font-size:0.84rem;cursor:pointer"><input type="radio" name="infModel" value="act" ${selectedModel==='act'?'checked':''} onchange="renderInferencePage(true)"> ACT</label>
+    <label style="display:flex;align-items:center;gap:4px;font-size:0.84rem;cursor:pointer"><input type="radio" name="infModel" value="smolvla" ${selectedModel==='smolvla'?'checked':''} onchange="renderInferencePage(true)"> SmolVLA</label>
+    <label style="display:flex;align-items:center;gap:4px;font-size:0.84rem;cursor:pointer"><input type="radio" name="infModel" value="pi05" ${selectedModel==='pi05'?'checked':''} onchange="renderInferencePage(true)"> pi0.5</label>
+    <span style="font-size:0.8rem;color:#777;margin-left:8px">${modelDesc}</span>
+  </div>`;
 
-  const modelDescs = {
-    act: 'ACT — lightweight, good for simple tasks. GPU: 8GB+',
-    smolvla: 'SmolVLA — Vision-Language-Action with language conditioning. GPU: 16GB+',
-    pi05: 'pi0.5 — large VLA model, best generalization. GPU: 24GB+',
-  };
-  const modelDesc = modelDescs[selectedModel];
-
-  // Tab state
-  if (firstRender) window._infActiveTab = 'inf-setup';
+  if (!forceRender) window._infActiveTab = 'inf-setup';
   const activeTab = window._infActiveTab || 'inf-setup';
 
-  // Setup commands
-  const cmdSetupEnv = [
-    `conda create -n lerobot python=3.12 -y`,
-    `conda activate lerobot`,
-    ``,
-    `conda install ffmpeg=7.1.1 -c conda-forge -y`,
-  ].join('\n');
+  container.innerHTML = `
+    <h2>Inference Guide</h2>
+    <p class="guide-subtitle">Commands for running inference with <strong>${name}</strong> model on GPU server.</p>
 
-  const cmdSetupInstall = [
-    `git clone https://github.com/huggingface/lerobot.git`,
-    `cd lerobot`,
-    ``,
-    `pip install -e .`,
-    ``,
-    `pip install -e ".[all]"`,
-  ].join('\n');
-
-  const cmdSetupDeps = [
-    `pip install "transformers>=4.48.0" "huggingface-hub>=1.5.0,<2.0"`,
-    `pip install python-dateutil`,
-  ].join('\n');
-
-  const cmdSetupConfig = [
-    `# Robot port (check with: ls /dev/ttyACM* or ls /dev/tty.usbmodem*)`,
-    `# Linux:  /dev/ttyACM0`,
-    `# Mac:    /dev/tty.usbmodem5B141122411`,
-    ``,
-    `# Camera indices (check with: ls /dev/video* or use v4l2-ctl --list-devices)`,
-    `# top camera:   0`,
-    `# wrist camera: 1`,
-  ].join('\n');
-
-  // Download model
-  const cmdDownload = [
-    `conda activate lerobot`,
-    ``,
-    `hf download ${modelRepo} \\`,
-    `  --repo-type model \\`,
-    `  --local-dir ${modelDir}`,
-  ].join('\n');
-
-  // Basic rollout
-  const cmdRollout = [
-    `conda activate lerobot`,
-    `cd lerobot`,
-    ``,
-    `lerobot-rollout \\`,
-    `  --robot.type=so101_follower \\`,
-    `  --robot.port=/dev/ttyACM0 \\`,
-    `  --robot.id=my_follower_arm \\`,
-    `  --robot.cameras='{`,
-    `    top: {type: opencv, index_or_path: 0, width: 320, height: 240, fps: 30},`,
-    `    wrist: {type: opencv, index_or_path: 1, width: 320, height: 240, fps: 30}`,
-    `  }' \\`,
-    `  --task="<your task instruction>" \\`,
-    `  --fps=30 \\`,
-    `  --display_data=true \\`,
-    `  --policy.path=${modelDir}`,
-  ].join('\n');
-
-  // fakecam_params.json example (keys match fakecam_inject.py build_cam_params / build_light_params)
-  const cmdFakecamParams = [
-    `{`,
-    `  "rotation": 5.0,`,
-    `  "translate_x": 2.0,`,
-    `  "translate_y": -1.0,`,
-    `  "scale": 1.05,`,
-    `  "shear": 0.0,`,
-    `  "brightness": 1.1,`,
-    `  "contrast": 1.0,`,
-    `  "saturation": 1.0,`,
-    `  "noise": 3.0,`,
-    `  "blur": 0`,
-    `}`,
-  ].join('\n');
-
-  // Rollout with fakecam augmentation
-  const cmdFakecam = [
-    `conda activate lerobot`,
-    `cd lerobot`,
-    ``,
-    `python fakecam_inject.py --params-file fakecam_params.json -- \\`,
-    `  lerobot-rollout \\`,
-    `  --robot.type=so101_follower \\`,
-    `  --robot.port=/dev/ttyACM0 \\`,
-    `  --robot.id=my_follower_arm \\`,
-    `  --robot.cameras='{`,
-    `    top: {type: opencv, index_or_path: 0, width: 320, height: 240, fps: 30},`,
-    `    wrist: {type: opencv, index_or_path: 1, width: 320, height: 240, fps: 30}`,
-    `  }' \\`,
-    `  --task="<your task instruction>" \\`,
-    `  --fps=30 \\`,
-    `  --display_data=true \\`,
-    `  --policy.path=${modelDir}`,
-  ].join('\n');
-
-  const body = document.getElementById('modalBody');
-  body.innerHTML = `
-    <h3 style="margin:0 0 4px">Inference Guide</h3>
-    <p style="margin-bottom:12px;font-size:0.88rem;color:#555">Commands for running inference with <strong>${name}</strong> model on GPU server.</p>
+    <div class="guide-ds-row">
+      <label>Dataset</label>
+      <select id="infDatasetSelect" onchange="renderInferencePage(true)"></select>
+    </div>
 
     <div style="display:flex;gap:0;margin-bottom:14px;border-bottom:2px solid #e0e0e0">
       <button class="tg-tab ${activeTab==='inf-setup'?'active':''}" onclick="infSwitchTab(this,'inf-setup')">Setup</button>
@@ -2259,19 +2152,6 @@ function _infBuildCmds(firstRender) {
       <button class="tg-tab ${activeTab==='inf-rollout'?'active':''}" onclick="infSwitchTab(this,'inf-rollout')">Inference</button>
       <button class="tg-tab ${activeTab==='inf-fakecam'?'active':''}" onclick="infSwitchTab(this,'inf-fakecam')">Inference + Augmentation</button>
       <button class="tg-tab ${activeTab==='inf-tips'?'active':''}" onclick="infSwitchTab(this,'inf-tips')">Tips</button>
-    </div>
-
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
-      <label style="display:flex;align-items:center;gap:4px;font-size:0.84rem;cursor:pointer">
-        <input type="radio" name="infModel" value="act" ${selectedModel==='act'?'checked':''} onchange="_infBuildCmds(false)"> ACT
-      </label>
-      <label style="display:flex;align-items:center;gap:4px;font-size:0.84rem;cursor:pointer">
-        <input type="radio" name="infModel" value="smolvla" ${selectedModel==='smolvla'?'checked':''} onchange="_infBuildCmds(false)"> SmolVLA
-      </label>
-      <label style="display:flex;align-items:center;gap:4px;font-size:0.84rem;cursor:pointer">
-        <input type="radio" name="infModel" value="pi05" ${selectedModel==='pi05'?'checked':''} onchange="_infBuildCmds(false)"> pi0.5
-      </label>
-      <span style="font-size:0.8rem;color:#777;margin-left:8px">${modelDesc}</span>
     </div>
 
     <div id="inf-setup" class="tg-panel" style="${activeTab==='inf-setup'?'':'display:none'}">
@@ -2292,18 +2172,20 @@ function _infBuildCmds(firstRender) {
     </div>
 
     <div id="inf-rollout" class="tg-panel" style="${activeTab==='inf-rollout'?'':'display:none'}">
+      ${modelSelector}
       <div style="font-size:0.8rem;color:#777;margin-bottom:8px">Run inference with <code>lerobot-rollout</code> on the robot. Adjust robot port, camera indices, and task instruction to match your setup.</div>
       ${tCmd('infCmd2', cmdRollout)}
     </div>
 
     <div id="inf-fakecam" class="tg-panel" style="${activeTab==='inf-fakecam'?'':'display:none'}">
+      ${modelSelector.replace(/name="infModel"/g, 'name="infModel"')}
       <div style="font-size:0.8rem;color:#777;margin-bottom:8px">
         Run inference with <strong>fake camera augmentation</strong> using <code>fakecam_inject.py</code>.
         This monkey-patches <code>cv2.VideoCapture</code> to apply real-time augmentation (rotation, brightness, noise, etc.)
         to camera frames before they reach the policy — useful for testing robustness to visual perturbations.
         The script supports hot-reload: edit <code>fakecam_params.json</code> while running and changes apply automatically.
       </div>
-      <div style="font-size:0.78rem;color:#999;margin-bottom:2px">1. Create <code>fakecam_params.json</code> in the lerobot directory</div>
+      <div style="font-size:0.78rem;color:#999;margin-bottom:2px">1. Create <code>fakecam_params.json</code> in the Lerobot-Dataset-Manager directory</div>
       ${tCmd('infCmd3a', cmdFakecamParams)}
       <div style="font-size:0.78rem;color:#999;margin-bottom:2px;margin-top:10px">2. Run with fakecam wrapper</div>
       ${tCmd('infCmd3b', cmdFakecam)}
@@ -2326,23 +2208,36 @@ function _infBuildCmds(firstRender) {
         </ul>
       </div>
     </div>
-
-    <div style="margin-top:14px;text-align:right">
-      <button class="btn btn-sm" onclick="closeModal()" style="background:#f0f0f0;color:#555">Close</button>
-    </div>
   `;
-  if (firstRender) {
-    document.querySelector('.modal').classList.add('modal-wide');
-    document.getElementById('modalOverlay').classList.add('visible');
-  }
+  _populateGuideSelect('infDatasetSelect', name);
 }
 
 function infSwitchTab(btn, panelId) {
   window._infActiveTab = panelId;
   btn.parentElement.querySelectorAll('.tg-tab').forEach(t => t.classList.remove('active'));
   btn.classList.add('active');
-  btn.closest('#modalBody').querySelectorAll('.tg-panel').forEach(p => p.style.display = 'none');
+  const page = document.getElementById('inferencePageContent');
+  page.querySelectorAll('.tg-panel').forEach(p => p.style.display = 'none');
   document.getElementById(panelId).style.display = 'block';
+}
+
+// Helper: populate dataset select in guide pages
+async function _populateGuideSelect(selectId, selectedName) {
+  const sel = document.getElementById(selectId);
+  if (!sel) return;
+  try {
+    const r = await fetch('/api/datasets');
+    const d = await r.json();
+    const current = selectedName || '';
+    sel.innerHTML = '<option value="">-- Select --</option>';
+    (d.datasets || []).forEach(ds => {
+      const o = document.createElement('option');
+      o.value = ds.name;
+      o.textContent = `${ds.name} (${ds.total_episodes} eps)`;
+      if (ds.name === current) o.selected = true;
+      sel.appendChild(o);
+    });
+  } catch(e) {}
 }
 
 // ============================================================
