@@ -46,6 +46,27 @@ numpy>=1.24.0
 opencv-python>=4.8.0
 ```
 
+### Install LeRobot (for Training / Inference on GPU server)
+
+```bash
+# Create conda environment
+conda create -n lerobot python=3.12 -y
+conda activate lerobot
+
+# Install FFmpeg
+conda install ffmpeg=7.1.1 -c conda-forge -y
+
+# Clone and install LeRobot
+git clone https://github.com/huggingface/lerobot.git
+cd lerobot
+pip install -e .
+pip install -e ".[all]"
+
+# Install additional dependencies
+pip install "transformers>=4.48.0" "huggingface-hub>=1.5.0,<2.0"
+pip install python-dateutil wandb
+```
+
 ## Usage
 
 ### Start the application
