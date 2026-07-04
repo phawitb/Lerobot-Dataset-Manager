@@ -15,8 +15,8 @@
     .top-nav-tab { padding: 12px 24px; font-size: 0.9rem; font-weight: 600; color: #888; background: none; border: none; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px; transition: all 0.15s; }
     .top-nav-tab:hover { color: #1a73e8; }
     .top-nav-tab.active { color: #1a73e8; border-bottom-color: #1a73e8; }
-    .page-container { display: none; flex: 1; overflow: hidden; }
-    .page-container.active { display: flex; flex-direction: column; }
+    .page-container { display: none !important; overflow: hidden; flex: 1; }
+    .page-container.active { display: flex !important; }
 
     /* ── Layout ── */
     .app-layout { display: flex; flex: 1; overflow: hidden; }
@@ -29,9 +29,6 @@
     .guide-page { flex: 1; overflow-y: auto; padding: 28px 40px; max-width: 1100px; }
     .guide-page h2 { font-size: 1.15rem; font-weight: 700; color: #333; margin-bottom: 4px; }
     .guide-page .guide-subtitle { font-size: 0.88rem; color: #888; margin-bottom: 20px; }
-    .guide-ds-row { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; padding: 12px 16px; background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; }
-    .guide-ds-row label { font-size: 0.82rem; font-weight: 600; color: #555; white-space: nowrap; }
-    .guide-ds-row select { padding: 7px 10px; border-radius: 6px; border: 1px solid #d0d0d0; font-size: 0.85rem; min-width: 220px; }
 
     .sidebar-section { padding: 12px 16px 8px; }
     .sidebar-section-title { font-size: 0.68rem; font-weight: 700; color: #999; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; }
@@ -138,13 +135,13 @@
   <button class="top-nav-tab active" onclick="switchPage('dataset')">Dataset</button>
   <button class="top-nav-tab" onclick="switchPage('training')">Training</button>
   <button class="top-nav-tab" onclick="switchPage('inference')">Inference</button>
+  <button class="top-nav-tab" onclick="switchPage('document')">Document</button>
 </div>
 
-<!-- ═══════════ Page: Dataset ═══════════ -->
-<div class="page-container active" id="page-dataset">
+<!-- ═══════════ Main Layout: Sidebar + Content ═══════════ -->
 <div class="app-layout">
 
-  <!-- ═══════════ Sidebar ═══════════ -->
+  <!-- ═══════════ Sidebar (shared across all tabs) ═══════════ -->
   <div class="sidebar">
     <div class="sidebar-header"></div>
 
@@ -182,6 +179,7 @@
       </div>
 
       <!-- Episodes list (in sidebar) -->
+      <div id="dsEpisodesPanel">
       <div style="border-top:1px solid #e0e0e0"></div>
       <div class="sidebar-section" style="padding-bottom:0;flex:1;display:flex;flex-direction:column;min-height:0">
         <div class="episode-list-header" style="padding:4px 0 6px;background:none;border-bottom:none">
@@ -197,6 +195,7 @@
         </div>
         <div class="episode-list" id="vizEpisodeList" style="flex:1;overflow-y:auto"></div>
       </div>
+      </div><!-- end dsEpisodesPanel -->
     </div>
 
     <select id="vizEpisodeSelect" style="display:none"></select>
@@ -205,98 +204,272 @@
   <!-- Resizer: left -->
   <div class="resizer" id="resizerLeft"></div>
 
-  <!-- ═══════════ Main ═══════════ -->
-  <div class="main-content">
-    <div class="main-body">
+  <!-- ═══════════ Content area (pages swap here) ═══════════ -->
+  <div style="flex:1;display:flex;flex-direction:column;overflow:hidden">
 
-      <!-- No dataset selected -->
-      <div id="vizEmptyState" class="empty-state">
-        <div class="empty-icon">&#128196;</div>
-        <h3>Select a dataset to visualize</h3>
-        <p>Choose from the sidebar, or use Import / Download to add one.</p>
+    <!-- Page: Dataset -->
+    <div class="page-container active" id="page-dataset">
+      <div class="main-content">
+        <div class="main-body">
+
+          <!-- No dataset selected -->
+          <div id="vizEmptyState" class="empty-state">
+            <div class="empty-icon">&#128196;</div>
+            <h3>Select a dataset to visualize</h3>
+            <p>Choose from the sidebar, or use Import / Download to add one.</p>
+          </div>
+
+          <!-- Visualizer content -->
+          <div id="vizContent" style="display:none">
+            <!-- Info bar -->
+            <div id="vizInfoGrid" style="display:flex;gap:12px;flex-wrap:wrap;font-size:0.88rem;margin-bottom:16px"></div>
+
+            <!-- Player controls -->
+            <div class="player-card" style="margin-bottom:12px">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
+                <button class="btn btn-sm" id="vizPlayBtn" onclick="vizTogglePlay()" style="background:#34a853;min-width:70px">Play</button>
+                <span id="vizTimeDisplay" style="font-size:0.95rem;font-weight:600;font-family:'SF Mono','Menlo',monospace;color:#333;min-width:50px">0.0s</span>
+                <span id="vizPhaseLabel" style="font-size:0.82rem;font-weight:600;padding:2px 10px;border-radius:10px;background:#e8eaed;color:#555;display:none"></span>
+                <span id="vizEpisodeInfo" style="font-size:0.82rem;color:#888"></span>
+              </div>
+              <input type="range" id="vizScrubber" min="0" max="100" value="0" step="0.1" style="width:100%" oninput="vizScrub(this.value)">
+              <div id="vizSegmentBar" style="position:relative;height:26px;border-radius:4px;overflow:visible;margin-top:4px;cursor:pointer;user-select:none"></div>
+              <div style="display:flex;align-items:center;margin-top:2px">
+                <span id="vizSegInfo" style="font-size:0.7rem;color:#999"></span>
+                <span style="font-size:0.65rem;color:#bbb;margin-left:auto">Click = change phase | Double-click = split | Drag handle = adjust</span>
+              </div>
+            </div>
+
+            <!-- Videos -->
+            <div id="vizVideos" style="display:flex;flex-direction:column;gap:12px;margin-bottom:12px"></div>
+
+            <!-- Joint chart -->
+            <div class="player-card">
+              <h3>Joint Trajectories</h3>
+              <div style="position:relative">
+                <canvas id="vizChart" style="width:100%;max-height:300px"></canvas>
+                <div id="vizChartCursor" style="position:absolute;top:0;bottom:0;width:2px;background:rgba(234,67,53,0.7);pointer-events:none;display:none"></div>
+              </div>
+            </div>
+          </div>
+
+        </div>
       </div>
 
-      <!-- Visualizer content -->
-      <div id="vizContent" style="display:none">
-        <!-- Info bar -->
-        <div id="vizInfoGrid" style="display:flex;gap:12px;flex-wrap:wrap;font-size:0.88rem;margin-bottom:16px"></div>
+      <!-- Resizer: right -->
+      <div class="resizer" id="resizerRight"></div>
 
-        <!-- Player controls -->
-        <div class="player-card" style="margin-bottom:12px">
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
-            <button class="btn btn-sm" id="vizPlayBtn" onclick="vizTogglePlay()" style="background:#34a853;min-width:70px">Play</button>
-            <span id="vizTimeDisplay" style="font-size:0.95rem;font-weight:600;font-family:'SF Mono','Menlo',monospace;color:#333;min-width:50px">0.0s</span>
-            <span id="vizPhaseLabel" style="font-size:0.82rem;font-weight:600;padding:2px 10px;border-radius:10px;background:#e8eaed;color:#555;display:none"></span>
-            <span id="vizEpisodeInfo" style="font-size:0.82rem;color:#888"></span>
+      <!-- ═══════════ Right panel: Actions ═══════════ -->
+      <div class="right-panel hidden" id="rightPanel">
+        <div class="episode-list-header">
+          <span>Actions</span>
+        </div>
+        <div style="padding:12px 14px;display:flex;flex-direction:column;gap:3px">
+          <div class="sidebar-section-title" style="margin-bottom:4px">Process</div>
+          <button class="sb-btn" onclick="vizShowAugment()"><span class="sb-icon">&#127912;</span> Augment</button>
+          <button class="sb-btn" onclick="vizRemoveIdle()"><span class="sb-icon">&#9986;</span> Remove Idle</button>
+          <button class="sb-btn" onclick="vizShowRandomSubset()"><span class="sb-icon">&#127922;</span> Random Sample</button>
+
+          <div class="sidebar-section-title" style="margin-top:10px;margin-bottom:4px">Export</div>
+          <button class="sb-btn" onclick="vizShowPushHf()"><span class="sb-icon">&#128640;</span> Push to HF</button>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- Page: Training -->
+    <div class="page-container" id="page-training" style="flex:1;overflow:hidden">
+      <div class="guide-page" id="trainingPageContent">
+        <div style="text-align:center;color:#999;padding:60px 0">
+          <div style="font-size:2.5rem;margin-bottom:10px;opacity:0.5">&#129504;</div>
+          <h3 style="color:#666;margin-bottom:6px">Training Guide</h3>
+          <p style="font-size:0.85rem">Select a dataset to generate training commands.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Page: Inference -->
+    <div class="page-container" id="page-inference" style="flex:1;overflow:hidden">
+      <div class="guide-page" id="inferencePageContent">
+        <div style="text-align:center;color:#999;padding:60px 0">
+          <div style="font-size:2.5rem;margin-bottom:10px;opacity:0.5">&#9654;</div>
+          <h3 style="color:#666;margin-bottom:6px">Inference Guide</h3>
+          <p style="font-size:0.85rem">Select a dataset to generate inference commands.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Page: Document -->
+    <div class="page-container" id="page-document" style="flex:1;overflow:hidden">
+      <div class="guide-page" style="overflow-y:auto;max-width:900px;margin:0 auto;padding:32px 40px;line-height:1.8">
+
+        <h2 style="font-size:1.3rem;font-weight:800;color:#1a73e8;margin-bottom:4px">LeRobot Dataset Manager</h2>
+        <p style="font-size:0.88rem;color:#888;margin-bottom:24px">Web-based tool for managing, visualizing, augmenting, and preparing robot learning datasets for the LeRobot framework.</p>
+
+        <hr style="border:none;border-top:1px solid #e0e0e0;margin:20px 0">
+
+        <!-- Overview -->
+        <h3 style="font-size:1.05rem;font-weight:700;color:#333;margin-bottom:8px">Overview</h3>
+        <p style="font-size:0.88rem;color:#555">
+          LeRobot Dataset Manager is a standalone web application that helps robotics teams manage datasets used for training robot manipulation policies.
+          It provides a complete workflow — from importing raw datasets, visualizing episodes, augmenting data, to generating training and inference commands — all through a simple browser interface.
+        </p>
+        <p style="font-size:0.88rem;color:#555;margin-top:8px">
+          The tool works with the <strong>LeRobot dataset format</strong> (Parquet files + MP4 videos + JSON metadata) and supports policies like <strong>ACT</strong>, <strong>SmolVLA</strong>, and <strong>pi0.5</strong>.
+        </p>
+
+        <hr style="border:none;border-top:1px solid #e0e0e0;margin:20px 0">
+
+        <!-- Workflow -->
+        <h3 style="font-size:1.05rem;font-weight:700;color:#333;margin-bottom:8px">Workflow</h3>
+        <div style="font-size:0.86rem;color:#555">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <span style="background:#e3f2fd;color:#1a73e8;font-weight:700;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:0.75rem;flex-shrink:0">1</span>
+            <span><strong>Collect Data</strong> — Record episodes on the robot (via LeRobot recording tools)</span>
           </div>
-          <input type="range" id="vizScrubber" min="0" max="100" value="0" step="0.1" style="width:100%" oninput="vizScrub(this.value)">
-          <div id="vizSegmentBar" style="position:relative;height:26px;border-radius:4px;overflow:visible;margin-top:4px;cursor:pointer;user-select:none"></div>
-          <div style="display:flex;align-items:center;margin-top:2px">
-            <span id="vizSegInfo" style="font-size:0.7rem;color:#999"></span>
-            <span style="font-size:0.65rem;color:#bbb;margin-left:auto">Click = change phase | Double-click = split | Drag handle = adjust</span>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <span style="background:#e3f2fd;color:#1a73e8;font-weight:700;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:0.75rem;flex-shrink:0">2</span>
+            <span><strong>Import & Manage</strong> — Import datasets, rename, delete, combine multiple datasets</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <span style="background:#e3f2fd;color:#1a73e8;font-weight:700;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:0.75rem;flex-shrink:0">3</span>
+            <span><strong>Visualize & Clean</strong> — Play videos, view joint trajectories, remove idle frames, delete bad episodes</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <span style="background:#e3f2fd;color:#1a73e8;font-weight:700;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:0.75rem;flex-shrink:0">4</span>
+            <span><strong>Augment</strong> — Multiply data with camera shifts, lighting changes, robot noise, and language variations</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <span style="background:#e3f2fd;color:#1a73e8;font-weight:700;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:0.75rem;flex-shrink:0">5</span>
+            <span><strong>Train</strong> — Push dataset to HuggingFace, then train on a GPU server using generated commands</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <span style="background:#e3f2fd;color:#1a73e8;font-weight:700;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:0.75rem;flex-shrink:0">6</span>
+            <span><strong>Inference</strong> — Download trained model and run on the robot (with optional real-time augmentation)</span>
           </div>
         </div>
 
-        <!-- Videos -->
-        <div id="vizVideos" style="display:flex;flex-direction:column;gap:12px;margin-bottom:12px"></div>
+        <hr style="border:none;border-top:1px solid #e0e0e0;margin:20px 0">
 
-        <!-- Joint chart -->
-        <div class="player-card">
-          <h3>Joint Trajectories</h3>
-          <div style="position:relative">
-            <canvas id="vizChart" style="width:100%;max-height:300px"></canvas>
-            <div id="vizChartCursor" style="position:absolute;top:0;bottom:0;width:2px;background:rgba(234,67,53,0.7);pointer-events:none;display:none"></div>
-          </div>
+        <!-- Tab: Dataset -->
+        <h3 style="font-size:1.05rem;font-weight:700;color:#1a73e8;margin-bottom:8px">Tab: Dataset</h3>
+        <p style="font-size:0.86rem;color:#555;margin-bottom:8px">Main workspace for managing and visualizing datasets.</p>
+        <table style="width:100%;font-size:0.84rem;border-collapse:collapse">
+          <tr style="border-bottom:1px solid #eee"><td style="padding:6px 8px;font-weight:600;color:#333;white-space:nowrap;vertical-align:top">Import Dataset</td><td style="padding:6px 8px;color:#555">Import from a local directory. Supports single or multiple dataset folders.</td></tr>
+          <tr style="border-bottom:1px solid #eee"><td style="padding:6px 8px;font-weight:600;color:#333;white-space:nowrap;vertical-align:top">Download from HF</td><td style="padding:6px 8px;color:#555">Download a dataset from HuggingFace Hub using <code>hf download</code>.</td></tr>
+          <tr style="border-bottom:1px solid #eee"><td style="padding:6px 8px;font-weight:600;color:#333;white-space:nowrap;vertical-align:top">Combine Datasets</td><td style="padding:6px 8px;color:#555">Merge 2+ datasets into one, consolidating episodes, tasks, and videos.</td></tr>
+          <tr style="border-bottom:1px solid #eee"><td style="padding:6px 8px;font-weight:600;color:#333;white-space:nowrap;vertical-align:top">Episode Visualizer</td><td style="padding:6px 8px;color:#555">Play synchronized camera videos (top, wrist), view joint trajectory chart, scrub through frames with real-time sync.</td></tr>
+          <tr style="border-bottom:1px solid #eee"><td style="padding:6px 8px;font-weight:600;color:#333;white-space:nowrap;vertical-align:top">Segment Editor</td><td style="padding:6px 8px;color:#555">Mark idle vs movement phases in episodes. Auto-detect or manually split/adjust segments.</td></tr>
+          <tr style="border-bottom:1px solid #eee"><td style="padding:6px 8px;font-weight:600;color:#333;white-space:nowrap;vertical-align:top">Remove Idle</td><td style="padding:6px 8px;color:#555">Create a new dataset with idle frames trimmed from start/end of each episode.</td></tr>
+          <tr style="border-bottom:1px solid #eee"><td style="padding:6px 8px;font-weight:600;color:#333;white-space:nowrap;vertical-align:top">Augment</td><td style="padding:6px 8px;color:#555">Multiply dataset with configurable augmentation: camera perspective/affine transforms, brightness/contrast/saturation/noise/blur, joint noise, and language paraphrasing. Preview before applying.</td></tr>
+          <tr style="border-bottom:1px solid #eee"><td style="padding:6px 8px;font-weight:600;color:#333;white-space:nowrap;vertical-align:top">Random Sample</td><td style="padding:6px 8px;color:#555">Create a subset by randomly sampling N episodes from the dataset.</td></tr>
+          <tr style="border-bottom:1px solid #eee"><td style="padding:6px 8px;font-weight:600;color:#333;white-space:nowrap;vertical-align:top">Push to HF</td><td style="padding:6px 8px;color:#555">Upload dataset to HuggingFace Hub using <code>hf upload</code>.</td></tr>
+          <tr><td style="padding:6px 8px;font-weight:600;color:#333;white-space:nowrap;vertical-align:top">Edit Task</td><td style="padding:6px 8px;color:#555">Assign or update task descriptions for selected episodes (used as language conditioning for VLA models).</td></tr>
+        </table>
+
+        <hr style="border:none;border-top:1px solid #e0e0e0;margin:20px 0">
+
+        <!-- Tab: Training -->
+        <h3 style="font-size:1.05rem;font-weight:700;color:#1a73e8;margin-bottom:8px">Tab: Training</h3>
+        <p style="font-size:0.86rem;color:#555;margin-bottom:8px">Step-by-step commands for training a policy model on a GPU server.</p>
+        <table style="width:100%;font-size:0.84rem;border-collapse:collapse">
+          <tr style="border-bottom:1px solid #eee"><td style="padding:6px 8px;font-weight:600;color:#333;white-space:nowrap;vertical-align:top">Setup</td><td style="padding:6px 8px;color:#555">Create conda environment, install LeRobot and dependencies (one-time setup).</td></tr>
+          <tr style="border-bottom:1px solid #eee"><td style="padding:6px 8px;font-weight:600;color:#333;white-space:nowrap;vertical-align:top">Download</td><td style="padding:6px 8px;color:#555">Download dataset from HuggingFace Hub to the GPU server.</td></tr>
+          <tr style="border-bottom:1px solid #eee"><td style="padding:6px 8px;font-weight:600;color:#333;white-space:nowrap;vertical-align:top">Training</td><td style="padding:6px 8px;color:#555">Auto-generated <code>lerobot-train</code> command for the selected model (ACT / SmolVLA / pi0.5) with W&B logging toggle.</td></tr>
+          <tr><td style="padding:6px 8px;font-weight:600;color:#333;white-space:nowrap;vertical-align:top">Tips</td><td style="padding:6px 8px;color:#555">GPU memory recommendations, batch size tuning, multi-GPU training, checkpoint management.</td></tr>
+        </table>
+
+        <hr style="border:none;border-top:1px solid #e0e0e0;margin:20px 0">
+
+        <!-- Tab: Inference -->
+        <h3 style="font-size:1.05rem;font-weight:700;color:#1a73e8;margin-bottom:8px">Tab: Inference</h3>
+        <p style="font-size:0.86rem;color:#555;margin-bottom:8px">Commands for running a trained model on the robot.</p>
+        <table style="width:100%;font-size:0.84rem;border-collapse:collapse">
+          <tr style="border-bottom:1px solid #eee"><td style="padding:6px 8px;font-weight:600;color:#333;white-space:nowrap;vertical-align:top">Setup</td><td style="padding:6px 8px;color:#555">Same environment setup as training (shared conda env).</td></tr>
+          <tr style="border-bottom:1px solid #eee"><td style="padding:6px 8px;font-weight:600;color:#333;white-space:nowrap;vertical-align:top">Download Model</td><td style="padding:6px 8px;color:#555">Download trained model checkpoint from HuggingFace Hub.</td></tr>
+          <tr style="border-bottom:1px solid #eee"><td style="padding:6px 8px;font-weight:600;color:#333;white-space:nowrap;vertical-align:top">Inference</td><td style="padding:6px 8px;color:#555">Run <code>lerobot-rollout</code> with robot port, camera config, and task instruction.</td></tr>
+          <tr style="border-bottom:1px solid #eee"><td style="padding:6px 8px;font-weight:600;color:#333;white-space:nowrap;vertical-align:top">Inference + Augmentation</td><td style="padding:6px 8px;color:#555">Run inference with <code>fakecam_inject.py</code> wrapper that applies real-time camera augmentation (rotation, brightness, noise, etc.) to test policy robustness. Supports hot-reload of parameters.</td></tr>
+          <tr><td style="padding:6px 8px;font-weight:600;color:#333;white-space:nowrap;vertical-align:top">Tips</td><td style="padding:6px 8px;color:#555">Camera setup, serial port config, headless mode, hot-reload usage.</td></tr>
+        </table>
+
+        <hr style="border:none;border-top:1px solid #e0e0e0;margin:20px 0">
+
+        <!-- Augmentation Detail -->
+        <h3 style="font-size:1.05rem;font-weight:700;color:#333;margin-bottom:8px">Data Augmentation (Detail)</h3>
+        <p style="font-size:0.86rem;color:#555;margin-bottom:8px">The augmentation system multiplies your dataset by creating new episodes from existing ones with controlled variations:</p>
+        <table style="width:100%;font-size:0.84rem;border-collapse:collapse">
+          <tr style="border-bottom:1px solid #eee;background:#f9f9f9"><td style="padding:6px 8px;font-weight:700;color:#333" colspan="2">Camera Shift</td></tr>
+          <tr style="border-bottom:1px solid #eee"><td style="padding:4px 8px 4px 24px;color:#555">Perspective</td><td style="padding:4px 8px;color:#777">Random perspective warp simulating camera viewpoint changes</td></tr>
+          <tr style="border-bottom:1px solid #eee"><td style="padding:4px 8px 4px 24px;color:#555">Affine (translate, scale, shear)</td><td style="padding:4px 8px;color:#777">Shift, zoom, and skew camera frames</td></tr>
+          <tr style="border-bottom:1px solid #eee"><td style="padding:4px 8px 4px 24px;color:#555">Rotation</td><td style="padding:4px 8px;color:#777">Rotate camera frame by random degrees</td></tr>
+          <tr style="border-bottom:1px solid #eee;background:#f9f9f9"><td style="padding:6px 8px;font-weight:700;color:#333" colspan="2">Light & Quality</td></tr>
+          <tr style="border-bottom:1px solid #eee"><td style="padding:4px 8px 4px 24px;color:#555">Brightness / Contrast / Saturation</td><td style="padding:4px 8px;color:#777">Simulate different lighting conditions</td></tr>
+          <tr style="border-bottom:1px solid #eee"><td style="padding:4px 8px 4px 24px;color:#555">Color Jitter / Shadow</td><td style="padding:4px 8px;color:#777">Random color shifts and directional shadow overlay</td></tr>
+          <tr style="border-bottom:1px solid #eee"><td style="padding:4px 8px 4px 24px;color:#555">Noise / Blur</td><td style="padding:4px 8px;color:#777">Gaussian noise and motion blur for image quality variation</td></tr>
+          <tr style="border-bottom:1px solid #eee;background:#f9f9f9"><td style="padding:6px 8px;font-weight:700;color:#333" colspan="2">Robot Noise</td></tr>
+          <tr style="border-bottom:1px solid #eee"><td style="padding:4px 8px 4px 24px;color:#555">Start Trim</td><td style="padding:4px 8px;color:#777">Random trim of initial idle frames</td></tr>
+          <tr style="border-bottom:1px solid #eee"><td style="padding:4px 8px 4px 24px;color:#555">Joint Offset / Jitter</td><td style="padding:4px 8px;color:#777">Small random perturbations to action and state trajectories</td></tr>
+          <tr style="border-bottom:1px solid #eee;background:#f9f9f9"><td style="padding:6px 8px;font-weight:700;color:#333" colspan="2">Language</td></tr>
+          <tr><td style="padding:4px 8px 4px 24px;color:#555">Paraphrase / Typos</td><td style="padding:4px 8px;color:#777">Generate task text variations for VLA language conditioning robustness</td></tr>
+        </table>
+
+        <hr style="border:none;border-top:1px solid #e0e0e0;margin:20px 0">
+
+        <!-- Supported Models -->
+        <h3 style="font-size:1.05rem;font-weight:700;color:#333;margin-bottom:8px">Supported Models</h3>
+        <table style="width:100%;font-size:0.84rem;border-collapse:collapse">
+          <tr style="border-bottom:1px solid #ddd;background:#f5f5f5"><th style="padding:6px 8px;text-align:left;color:#555">Model</th><th style="padding:6px 8px;text-align:left;color:#555">Type</th><th style="padding:6px 8px;text-align:left;color:#555">GPU</th><th style="padding:6px 8px;text-align:left;color:#555">Best For</th></tr>
+          <tr style="border-bottom:1px solid #eee"><td style="padding:6px 8px;font-weight:600">ACT</td><td style="padding:6px 8px;color:#555">Action Chunking Transformer</td><td style="padding:6px 8px;color:#555">8 GB+</td><td style="padding:6px 8px;color:#555">Simple tasks, fast training</td></tr>
+          <tr style="border-bottom:1px solid #eee"><td style="padding:6px 8px;font-weight:600">SmolVLA</td><td style="padding:6px 8px;color:#555">Vision-Language-Action</td><td style="padding:6px 8px;color:#555">16 GB+</td><td style="padding:6px 8px;color:#555">Language-conditioned tasks</td></tr>
+          <tr><td style="padding:6px 8px;font-weight:600">pi0.5</td><td style="padding:6px 8px;color:#555">Large VLA</td><td style="padding:6px 8px;color:#555">24 GB+</td><td style="padding:6px 8px;color:#555">Best generalization</td></tr>
+        </table>
+
+        <hr style="border:none;border-top:1px solid #e0e0e0;margin:20px 0">
+
+        <!-- fakecam_inject.py -->
+        <h3 style="font-size:1.05rem;font-weight:700;color:#333;margin-bottom:8px">fakecam_inject.py</h3>
+        <p style="font-size:0.86rem;color:#555;margin-bottom:8px">
+          A Python wrapper that <strong>monkey-patches <code>cv2.VideoCapture</code></strong> to apply real-time augmentation during inference without modifying inference code.
+          This lets you test how robust a trained policy is to visual perturbations (camera shifts, lighting changes, noise).
+        </p>
+        <div style="font-size:0.84rem;color:#555">
+          <p style="margin-bottom:4px"><strong>Key features:</strong></p>
+          <ul style="padding-left:18px;line-height:1.8;margin:0">
+            <li><strong>Hot-reload</strong> — Edit <code>fakecam_params.json</code> while inference is running; changes apply automatically every 2 seconds</li>
+            <li><strong>Multiple param sources</strong> — JSON file (<code>--params-file</code>), remote server (<code>--from-server</code>), or direct JSON (<code>--params</code>)</li>
+            <li><strong>Black camera mode</strong> — Replace specific camera indices with black frames (<code>--black-cameras</code>) to test missing sensor robustness</li>
+            <li><strong>In-process execution</strong> — Runs the target CLI tool in the same process so the monkey-patch applies to all camera reads</li>
+          </ul>
+          <p style="margin-top:8px;margin-bottom:4px"><strong>Augmentation parameters:</strong></p>
+          <code style="display:block;background:#f5f5f5;padding:10px 14px;border-radius:6px;font-size:0.8rem;line-height:1.6;white-space:pre">rotation, translate_x, translate_y, scale, shear
+brightness, contrast, saturation, noise, blur</code>
         </div>
+
+        <hr style="border:none;border-top:1px solid #e0e0e0;margin:20px 0">
+
+        <!-- Tech Stack -->
+        <h3 style="font-size:1.05rem;font-weight:700;color:#333;margin-bottom:8px">Tech Stack</h3>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;font-size:0.82rem">
+          <span style="background:#e3f2fd;color:#1565c0;padding:4px 12px;border-radius:12px;font-weight:600">FastAPI</span>
+          <span style="background:#e8f5e9;color:#2e7d32;padding:4px 12px;border-radius:12px;font-weight:600">Python</span>
+          <span style="background:#fff3e0;color:#e65100;padding:4px 12px;border-radius:12px;font-weight:600">JavaScript</span>
+          <span style="background:#fce4ec;color:#c62828;padding:4px 12px;border-radius:12px;font-weight:600">PyArrow / Parquet</span>
+          <span style="background:#f3e5f5;color:#6a1b9a;padding:4px 12px;border-radius:12px;font-weight:600">OpenCV</span>
+          <span style="background:#e0f2f1;color:#00695c;padding:4px 12px;border-radius:12px;font-weight:600">FFmpeg</span>
+          <span style="background:#e8eaf6;color:#283593;padding:4px 12px;border-radius:12px;font-weight:600">Chart.js</span>
+          <span style="background:#efebe9;color:#4e342e;padding:4px 12px;border-radius:12px;font-weight:600">HuggingFace Hub</span>
+        </div>
+
+        <div style="margin-top:32px;padding:16px;background:#f0f7ff;border-radius:8px;font-size:0.82rem;color:#555;text-align:center">
+          GitHub: <a href="https://github.com/phawitb/Lerobot-Dataset-Manager" target="_blank" style="color:#1a73e8;font-weight:600">phawitb/Lerobot-Dataset-Manager</a>
+        </div>
+
       </div>
-
     </div>
-  </div>
 
-  <!-- Resizer: right -->
-  <div class="resizer" id="resizerRight"></div>
+  </div><!-- end content area -->
 
-  <!-- ═══════════ Right panel: Actions ═══════════ -->
-  <div class="right-panel hidden" id="rightPanel">
-    <div class="episode-list-header">
-      <span>Actions</span>
-    </div>
-    <div style="padding:12px 14px;display:flex;flex-direction:column;gap:3px">
-      <div class="sidebar-section-title" style="margin-bottom:4px">Process</div>
-      <button class="sb-btn" onclick="vizShowAugment()"><span class="sb-icon">&#127912;</span> Augment</button>
-      <button class="sb-btn" onclick="vizRemoveIdle()"><span class="sb-icon">&#9986;</span> Remove Idle</button>
-      <button class="sb-btn" onclick="vizShowRandomSubset()"><span class="sb-icon">&#127922;</span> Random Sample</button>
-
-      <div class="sidebar-section-title" style="margin-top:10px;margin-bottom:4px">Export</div>
-      <button class="sb-btn" onclick="vizShowPushHf()"><span class="sb-icon">&#128640;</span> Push to HF</button>
-
-    </div>
-  </div>
-
-</div>
-</div><!-- end page-dataset -->
-
-<!-- ═══════════ Page: Training ═══════════ -->
-<div class="page-container" id="page-training">
-  <div class="guide-page" id="trainingPageContent">
-    <div style="text-align:center;color:#999;padding:60px 0">
-      <div style="font-size:2.5rem;margin-bottom:10px;opacity:0.5">&#129504;</div>
-      <h3 style="color:#666;margin-bottom:6px">Training Guide</h3>
-      <p style="font-size:0.85rem">Select a dataset to generate training commands.</p>
-    </div>
-  </div>
-</div>
-
-<!-- ═══════════ Page: Inference ═══════════ -->
-<div class="page-container" id="page-inference">
-  <div class="guide-page" id="inferencePageContent">
-    <div style="text-align:center;color:#999;padding:60px 0">
-      <div style="font-size:2.5rem;margin-bottom:10px;opacity:0.5">&#9654;</div>
-      <h3 style="color:#666;margin-bottom:6px">Inference Guide</h3>
-      <p style="font-size:0.85rem">Select a dataset to generate inference commands.</p>
-    </div>
-  </div>
-</div>
+</div><!-- end app-layout -->
 
 <!-- Modal -->
 <div class="modal-overlay" id="modalOverlay">
@@ -392,6 +565,8 @@ function switchPage(pageId) {
   document.querySelectorAll('.top-nav-tab').forEach(t => {
     if (t.textContent.trim().toLowerCase() === pageId) t.classList.add('active');
   });
+  const epPanel = document.getElementById('dsEpisodesPanel');
+  if (epPanel) epPanel.style.display = (pageId === 'dataset') ? '' : 'none';
   if (pageId === 'training') renderTrainingPage();
   if (pageId === 'inference') renderInferencePage();
 }
@@ -449,9 +624,18 @@ document.getElementById('vizDatasetSelect').addEventListener('change', async fun
     vizContent.style.display = 'none';
     vizEmpty.style.display = '';
     vizCurrentDataset = null;
+    const ap = document.querySelector('.page-container.active');
+    if (ap && ap.id === 'page-training') renderTrainingPage();
+    else if (ap && ap.id === 'page-inference') renderInferencePage();
     return;
   }
   vizCurrentDataset = name;
+  // Re-render guide pages if they were already rendered
+  const activePage = document.querySelector('.page-container.active');
+  if (activePage) {
+    if (activePage.id === 'page-training') renderTrainingPage(true);
+    else if (activePage.id === 'page-inference') renderInferencePage(true);
+  }
   vizEmpty.style.display = 'none';
   document.getElementById('vizDatasetStatus').style.display = 'none';
   rightPanel.classList.remove('hidden');
@@ -1938,23 +2122,18 @@ function vizShowPushHf() {
 // ============================================================
 function renderTrainingPage(forceRender) {
   const container = document.getElementById('trainingPageContent');
-  const name = document.getElementById('tgDatasetSelect')?.value || vizCurrentDataset;
+  const name = vizCurrentDataset;
   const c = appConfig;
   const user = c.hf_username || '<HF_USERNAME>';
 
   if (!name) {
     container.innerHTML = `
       <h2>Training Guide</h2>
-      <p class="guide-subtitle">Select a dataset to generate training commands.</p>
-      <div class="guide-ds-row">
-        <label>Dataset</label>
-        <select id="tgDatasetSelect" onchange="renderTrainingPage(true)"><option value="">-- Select --</option></select>
-      </div>
+      <p class="guide-subtitle">Select a dataset from the sidebar to generate training commands.</p>
       <div style="text-align:center;color:#999;padding:40px 0">
         <div style="font-size:2.5rem;margin-bottom:10px;opacity:0.5">&#129504;</div>
-        <p style="font-size:0.85rem">Choose a dataset above to see training commands.</p>
+        <p style="font-size:0.85rem">Choose a dataset from the sidebar to see training commands.</p>
       </div>`;
-    _populateGuideSelect('tgDatasetSelect');
     return;
   }
 
@@ -1995,11 +2174,6 @@ function renderTrainingPage(forceRender) {
   container.innerHTML = `
     <h2>Training Guide</h2>
     <p class="guide-subtitle">Commands for training <strong>${name}</strong> on GPU server.</p>
-
-    <div class="guide-ds-row">
-      <label>Dataset</label>
-      <select id="tgDatasetSelect" onchange="renderTrainingPage(true)"></select>
-    </div>
 
     <div style="display:flex;gap:0;margin-bottom:14px;border-bottom:2px solid #e0e0e0">
       <button class="tg-tab ${activeTab==='tg-setup'?'active':''}" onclick="tgSwitchTab(this,'tg-setup')">Setup</button>
@@ -2054,7 +2228,6 @@ function renderTrainingPage(forceRender) {
       </div>
     </div>
   `;
-  _populateGuideSelect('tgDatasetSelect', name);
 }
 
 function tgSwitchTab(btn, panelId) {
@@ -2087,23 +2260,18 @@ function vizCopyCmd(elId) {
 // ============================================================
 function renderInferencePage(forceRender) {
   const container = document.getElementById('inferencePageContent');
-  const name = document.getElementById('infDatasetSelect')?.value || vizCurrentDataset;
+  const name = vizCurrentDataset;
   const c = appConfig;
   const user = c.hf_username || '<HF_USERNAME>';
 
   if (!name) {
     container.innerHTML = `
       <h2>Inference Guide</h2>
-      <p class="guide-subtitle">Select a dataset to generate inference commands.</p>
-      <div class="guide-ds-row">
-        <label>Dataset</label>
-        <select id="infDatasetSelect" onchange="renderInferencePage(true)"><option value="">-- Select --</option></select>
-      </div>
+      <p class="guide-subtitle">Select a dataset from the sidebar to generate inference commands.</p>
       <div style="text-align:center;color:#999;padding:40px 0">
         <div style="font-size:2.5rem;margin-bottom:10px;opacity:0.5">&#9654;</div>
-        <p style="font-size:0.85rem">Choose a dataset above to see inference commands.</p>
+        <p style="font-size:0.85rem">Choose a dataset from the sidebar to see inference commands.</p>
       </div>`;
-    _populateGuideSelect('infDatasetSelect');
     return;
   }
 
@@ -2140,11 +2308,6 @@ function renderInferencePage(forceRender) {
   container.innerHTML = `
     <h2>Inference Guide</h2>
     <p class="guide-subtitle">Commands for running inference with <strong>${name}</strong> model on GPU server.</p>
-
-    <div class="guide-ds-row">
-      <label>Dataset</label>
-      <select id="infDatasetSelect" onchange="renderInferencePage(true)"></select>
-    </div>
 
     <div style="display:flex;gap:0;margin-bottom:14px;border-bottom:2px solid #e0e0e0">
       <button class="tg-tab ${activeTab==='inf-setup'?'active':''}" onclick="infSwitchTab(this,'inf-setup')">Setup</button>
@@ -2211,7 +2374,6 @@ function renderInferencePage(forceRender) {
       </div>
     </div>
   `;
-  _populateGuideSelect('infDatasetSelect', name);
 }
 
 function infSwitchTab(btn, panelId) {
@@ -2225,24 +2387,6 @@ function infSwitchTab(btn, panelId) {
   if (ms) ms.style.display = (panelId === 'inf-rollout' || panelId === 'inf-fakecam') ? '' : 'none';
 }
 
-// Helper: populate dataset select in guide pages
-async function _populateGuideSelect(selectId, selectedName) {
-  const sel = document.getElementById(selectId);
-  if (!sel) return;
-  try {
-    const r = await fetch('/api/datasets');
-    const d = await r.json();
-    const current = selectedName || '';
-    sel.innerHTML = '<option value="">-- Select --</option>';
-    (d.datasets || []).forEach(ds => {
-      const o = document.createElement('option');
-      o.value = ds.name;
-      o.textContent = `${ds.name} (${ds.total_episodes} eps)`;
-      if (ds.name === current) o.selected = true;
-      sel.appendChild(o);
-    });
-  } catch(e) {}
-}
 
 // ============================================================
 // Remove Idle
