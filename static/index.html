@@ -2154,6 +2154,10 @@ function renderInferencePage(forceRender) {
       <button class="tg-tab ${activeTab==='inf-tips'?'active':''}" onclick="infSwitchTab(this,'inf-tips')">Tips</button>
     </div>
 
+    <div id="infModelSelector" style="${(activeTab==='inf-rollout'||activeTab==='inf-fakecam')?'':'display:none'}">
+      ${modelSelector}
+    </div>
+
     <div id="inf-setup" class="tg-panel" style="${activeTab==='inf-setup'?'':'display:none'}">
       <div style="font-size:0.8rem;color:#777;margin-bottom:8px">One-time setup on the GPU server. Skip if already done (same env as Training).</div>
       <div style="font-size:0.78rem;color:#999;margin-bottom:2px">Create Python environment</div>
@@ -2172,13 +2176,11 @@ function renderInferencePage(forceRender) {
     </div>
 
     <div id="inf-rollout" class="tg-panel" style="${activeTab==='inf-rollout'?'':'display:none'}">
-      ${modelSelector}
       <div style="font-size:0.8rem;color:#777;margin-bottom:8px">Run inference with <code>lerobot-rollout</code> on the robot. Adjust robot port, camera indices, and task instruction to match your setup.</div>
       ${tCmd('infCmd2', cmdRollout)}
     </div>
 
     <div id="inf-fakecam" class="tg-panel" style="${activeTab==='inf-fakecam'?'':'display:none'}">
-      ${modelSelector.replace(/name="infModel"/g, 'name="infModel"')}
       <div style="font-size:0.8rem;color:#777;margin-bottom:8px">
         Run inference with <strong>fake camera augmentation</strong> using <code>fakecam_inject.py</code>.
         This monkey-patches <code>cv2.VideoCapture</code> to apply real-time augmentation (rotation, brightness, noise, etc.)
@@ -2219,6 +2221,8 @@ function infSwitchTab(btn, panelId) {
   const page = document.getElementById('inferencePageContent');
   page.querySelectorAll('.tg-panel').forEach(p => p.style.display = 'none');
   document.getElementById(panelId).style.display = 'block';
+  const ms = document.getElementById('infModelSelector');
+  if (ms) ms.style.display = (panelId === 'inf-rollout' || panelId === 'inf-fakecam') ? '' : 'none';
 }
 
 // Helper: populate dataset select in guide pages
