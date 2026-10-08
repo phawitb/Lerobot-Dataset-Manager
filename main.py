@@ -1780,14 +1780,14 @@ def _aug_episode_data(rows, robot_p):
     return rows
 
 
-def _aug_process_video(src_path, dst_path, from_ts, to_ts, fps, cam_p, light_p, vid_w, vid_h):
+def _aug_process_video(src_path, dst_path, from_ts, to_ts, fps, cam_p, light_p, vid_w, vid_h, expected_frames=None):
     duration = to_ts - from_ts
     if duration <= 0 or not Path(src_path).exists():
         return 0.0, 0.0, 0
     read_cmd = [
         "ffmpeg", "-v", "quiet",
         "-ss", str(from_ts), "-i", str(src_path),
-        "-t", str(duration),
+        "-t", str(duration + 1.0 / fps),  # read slightly more to avoid missing last frame
         "-f", "rawvideo", "-pix_fmt", "bgr24",
         "-s", f"{vid_w}x{vid_h}", "pipe:1",
     ]
@@ -1805,6 +1805,8 @@ def _aug_process_video(src_path, dst_path, from_ts, to_ts, fps, cam_p, light_p, 
         frame_size = vid_w * vid_h * 3
         count = 0
         while True:
+            if expected_frames and count >= expected_frames:
+                break
             raw = reader.stdout.read(frame_size)
             if len(raw) < frame_size:
                 break
@@ -2028,6 +2030,7 @@ def _run_augmentation(src_name, new_name, target_episodes, techniques, intensity
                             cam_p if not is_original else None,
                             light_p if not is_original else None,
                             vid_w, vid_h,
+                            expected_frames=len(frames),
                         )
                     else:
                         new_from, new_to = 0.0, 0.0

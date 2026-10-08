@@ -852,7 +852,19 @@ document.getElementById('vizDatasetSelect').addEventListener('change', async fun
       div.dataset.ep = i;
       const epTasks = ep && ep.tasks ? (Array.isArray(ep.tasks) ? ep.tasks : [ep.tasks]) : [];
       const epTaskHtml = epTasks.map(t => { const c = vizTaskColorMap[t] || '#888'; return `<div style="font-size:0.68rem;color:${c};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t}</div>`; }).join('');
-      div.innerHTML = `<input type="checkbox" class="viz-ep-cb" data-ep="${i}" style="display:none;margin-right:6px;margin-top:2px" onclick="event.stopPropagation();vizUpdateDeleteBtn()"><div style="flex:1;min-width:0"><span>Ep ${i}</span><div class="ep-meta">${len}f &middot; ${dur}s</div>${epTaskHtml}</div>`;
+      // Augmentation badge
+      let augBadge = '';
+      if (window._augConfig && window._augConfig.episodes) {
+        const aInfo = window._augConfig.episodes.find(e => e.new_ep === i);
+        if (aInfo) {
+          if (aInfo.is_original) {
+            augBadge = '<span style="font-size:0.6rem;color:#34a853;margin-left:4px" title="Original copy (no augmentation)">original</span>';
+          } else {
+            augBadge = `<span style="font-size:0.6rem;color:#7b1fa2;margin-left:4px" title="Augmented from ep ${aInfo.source_ep}">augmented(ep${aInfo.source_ep})</span>`;
+          }
+        }
+      }
+      div.innerHTML = `<input type="checkbox" class="viz-ep-cb" data-ep="${i}" style="display:none;margin-right:6px;margin-top:2px" onclick="event.stopPropagation();vizUpdateDeleteBtn()"><div style="flex:1;min-width:0"><span>Ep ${i}${augBadge}</span><div class="ep-meta">${len}f &middot; ${dur}s</div>${epTaskHtml}</div>`;
       div.addEventListener('click', () => {
         if (vizSelectMode) {
           const cb = div.querySelector('.viz-ep-cb');
@@ -897,29 +909,10 @@ async function vizLoadEpisode() {
   vizEpStart = epMeta[`videos/${firstCam}/from_timestamp`] ?? 0;
   vizEpEnd = epMeta[`videos/${firstCam}/to_timestamp`] ?? 0;
 
-  // Check augment config for this episode
-  const augCompare = document.getElementById('vizAugCompare');
-  if (augCompare) augCompare.remove();
-  const cfg = window._augConfig;
-  let srcEpMeta = null;
-  let augEpInfo = null;
-  if (cfg && cfg.episodes) {
-    augEpInfo = cfg.episodes.find(e => e.new_ep === ep);
-    if (augEpInfo && !augEpInfo.is_original) {
-      try {
-        const srcR = await fetch(`/api/datasets/${cfg.source_dataset}/episodes`);
-        const srcD = await srcR.json();
-        if (srcD.ok && srcD.episodes) {
-          srcEpMeta = srcD.episodes.find(e => e.episode_index === augEpInfo.source_ep);
-        }
-      } catch(e) { console.warn('Could not load source episodes:', e); }
-    }
-  }
-
-  // Videos — show original side-by-side if augmented
+  // Videos — always render normally
   const vids = document.getElementById('vizVideos');
   vids.innerHTML = '';
-  vids.style.flexDirection = srcEpMeta ? 'column' : 'row';
+  vids.style.flexDirection = 'row';
 
   cameraKeys.forEach(cam => {
     const label = cam.split('.').pop();
@@ -931,98 +924,19 @@ async function vizLoadEpisode() {
     const epStart = epMeta[`${camKey}/from_timestamp`] ?? vizEpStart;
     const epEnd = epMeta[`${camKey}/to_timestamp`] ?? vizEpEnd;
     const path = `/data/${name}/videos/${cam}/chunk-${chunk}/file-${file}.mp4`;
-
-    if (srcEpMeta) {
-      const ck = String(srcEpMeta[`${camKey}/chunk_index`] ?? 0).padStart(3, '0');
-      const fi = String(srcEpMeta[`${camKey}/file_index`] ?? 0).padStart(3, '0');
-      const srcPath = `/data/${cfg.source_dataset}/videos/${cam}/chunk-${ck}/file-${fi}.mp4`;
-      const srcFrom = srcEpMeta[`${camKey}/from_timestamp`] ?? 0;
-      const srcTo = srcEpMeta[`${camKey}/to_timestamp`] ?? 0;
-      vids.innerHTML += `
-        <div style="display:flex;gap:12px">
-          <div style="flex:1">
-            <div style="font-size:0.72rem;color:#888;margin-bottom:4px">${label} <span style="color:#34a853;font-weight:600">original</span> (ep ${augEpInfo.source_ep})</div>
-            <video muted preload="auto" class="viz-video" data-ep-start="${srcFrom}" data-ep-end="${srcTo}" style="width:100%;border-radius:8px;border:2px solid #34a853;background:#000" src="${srcPath}"></video>
-          </div>
-          <div style="flex:1">
-            <div style="font-size:0.72rem;color:#888;margin-bottom:4px">${label} <span style="color:#7b1fa2;font-weight:600">augmented</span></div>
-            <video muted preload="auto" class="viz-video" data-ep-start="${epStart}" data-ep-end="${epEnd}" style="width:100%;border-radius:8px;border:2px solid #7b1fa2;background:#000" src="${path}"></video>
-          </div>
-        </div>`;
-    } else {
-      vids.innerHTML += `
-        <div style="flex:1;min-width:200px">
-          <div style="font-size:0.82rem;font-weight:600;color:#555;margin-bottom:4px">${label}</div>
-          <video muted preload="auto" class="viz-video" data-ep-start="${epStart}" data-ep-end="${epEnd}" style="width:100%;border-radius:8px;border:1px solid #e0e0e0;background:#000" src="${path}"></video>
-        </div>`;
-    }
+    vids.innerHTML += `
+      <div style="flex:1;min-width:200px">
+        <div style="font-size:0.82rem;font-weight:600;color:#555;margin-bottom:4px">${label}</div>
+        <video muted preload="auto" class="viz-video" data-ep-start="${epStart}" data-ep-end="${epEnd}" style="width:100%;border-radius:8px;border:1px solid #e0e0e0;background:#000" src="${path}"></video>
+      </div>`;
   });
 
   // Seek videos to episode start
   document.querySelectorAll('.viz-video').forEach(v => {
-    const startTime = parseFloat(v.dataset.epStart) || vizEpStart;
+    const raw = v.dataset.epStart;
+    const startTime = (raw !== undefined && raw !== '') ? parseFloat(raw) : vizEpStart;
     v.addEventListener('loadedmetadata', () => { v.currentTime = startTime; });
   });
-
-  // Show augmentation params info
-  if (augEpInfo) {
-    const srcName = cfg.source_dataset;
-    const srcEp = augEpInfo.source_ep;
-    const isOrig = augEpInfo.is_original;
-
-    let paramHtml = '';
-    if (isOrig) {
-      paramHtml = '<span style="color:#34a853;font-weight:600">Original (no augmentation applied)</span>';
-    } else {
-      const parts = [];
-      if (augEpInfo.camera) {
-        const c = augEpInfo.camera;
-        const cp = [];
-        if (c.angle != null) cp.push(`rotation: ${Number(c.angle).toFixed(1)}°`);
-        if (c.tx != null) cp.push(`tx: ${Number(c.tx).toFixed(3)}`);
-        if (c.ty != null) cp.push(`ty: ${Number(c.ty).toFixed(3)}`);
-        if (c.scale != null) cp.push(`scale: ${Number(c.scale).toFixed(3)}`);
-        if (c.shear != null) cp.push(`shear: ${Number(c.shear).toFixed(3)}`);
-        if (c.persp) cp.push('perspective: applied');
-        if (cp.length) parts.push(`<b>Camera:</b> ${cp.join(', ')}`);
-      }
-      if (augEpInfo.light) {
-        const l = augEpInfo.light;
-        const lp = [];
-        if (l.brightness != null) lp.push(`brightness: ${Number(l.brightness).toFixed(2)}`);
-        if (l.contrast != null) lp.push(`contrast: ${Number(l.contrast).toFixed(2)}`);
-        if (l.saturation != null) lp.push(`saturation: ${Number(l.saturation).toFixed(2)}`);
-        if (l.hue != null) lp.push(`hue: ${l.hue}`);
-        if (l.noise_s != null) lp.push(`noise: σ${Number(l.noise_s).toFixed(1)}`);
-        if (l.blur_s != null) lp.push(`blur: σ${Number(l.blur_s).toFixed(1)}`);
-        if (l.shadow_a != null) lp.push(`shadow: α${Number(l.shadow_a).toFixed(2)} ${l.shadow_dir||''}`);
-        if (lp.length) parts.push(`<b>Light:</b> ${lp.join(', ')}`);
-      }
-      if (augEpInfo.robot) {
-        const r = augEpInfo.robot;
-        const rp = [];
-        if (r.trim != null) rp.push(`trim: ${r.trim}f`);
-        if (r.jitter_s != null) rp.push(`jitter: σ${Number(r.jitter_s).toFixed(2)}`);
-        if (r.joint_offset) rp.push('offset: applied');
-        if (rp.length) parts.push(`<b>Robot:</b> ${rp.join(', ')}`);
-      }
-      paramHtml = parts.length ? parts.join(' &nbsp;|&nbsp; ') : 'No augmentation params';
-    }
-
-    const compareDiv = document.createElement('div');
-    compareDiv.id = 'vizAugCompare';
-    compareDiv.innerHTML = `
-      <div style="background:#f5f0ff;border:1px solid #d1c4e9;border-radius:8px;padding:8px 14px;margin-bottom:10px">
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-          <span style="font-size:0.82rem;font-weight:600;color:#7b1fa2">
-            Augmented from ${srcName} ep ${srcEp}${isOrig ? ' (copy)' : ''}
-          </span>
-          <span style="font-size:0.72rem;color:#999">Mode: ${cfg.mode || 'random'} · Intensity: ${cfg.intensity || 3}/5</span>
-        </div>
-        <div style="font-size:0.73rem;color:#666;font-family:'SF Mono',monospace;margin-top:4px">${paramHtml}</div>
-      </div>`;
-    vids.parentNode.insertBefore(compareDiv, vids.nextSibling);
-  }
 
   // Reset controls
   document.getElementById('vizScrubber').value = 0;
@@ -1074,18 +988,28 @@ function vizUpdateLoop() {
   const videos = document.querySelectorAll('.viz-video');
   if (!videos.length) return;
   const v = videos[0];
-  const vStart = parseFloat(v.dataset.epStart) || vizEpStart;
-  const vEnd = parseFloat(v.dataset.epEnd) || vizEpEnd;
-  const vDuration = vEnd - vStart;
+  const rawS0 = v.dataset.epStart;
+  const rawE0 = v.dataset.epEnd;
+  const vStart = (rawS0 !== undefined && rawS0 !== '') ? parseFloat(rawS0) : vizEpStart;
+  const vEnd = (rawE0 !== undefined && rawE0 !== '') ? parseFloat(rawE0) : vizEpEnd;
+  // Use same effective range as scrubber: map 0-100% to [vStart, vEnd - frameDur]
+  // This ensures the chart cursor aligns with the correct frame (fence-post fix)
+  const frameDur = vizFrameCount > 1 ? (vEnd - vStart) / vizFrameCount : 0.033;
+  const effectiveEnd = vEnd - frameDur;
+  const effectiveDuration = effectiveEnd - vStart;
   const elapsed = v.currentTime - vStart;
-  const pct = vDuration > 0 ? Math.min(100, Math.max(0, (elapsed / vDuration) * 100)) : 0;
+  const pct = effectiveDuration > 0 ? Math.min(100, Math.max(0, (elapsed / effectiveDuration) * 100)) : 0;
 
   // Sync all other videos to same percentage
   for (let i = 1; i < videos.length; i++) {
     const vi = videos[i];
-    const viStart = parseFloat(vi.dataset.epStart) || vizEpStart;
-    const viEnd = parseFloat(vi.dataset.epEnd) || vizEpEnd;
-    const target = viStart + (pct / 100) * (viEnd - viStart);
+    const rawSi = vi.dataset.epStart;
+    const rawEi = vi.dataset.epEnd;
+    const viStart = (rawSi !== undefined && rawSi !== '') ? parseFloat(rawSi) : vizEpStart;
+    const viEnd = (rawEi !== undefined && rawEi !== '') ? parseFloat(rawEi) : vizEpEnd;
+    const viFrameDur = vizFrameCount > 1 ? (viEnd - viStart) / vizFrameCount : 0.033;
+    const viEffectiveEnd = viEnd - viFrameDur;
+    const target = viStart + (pct / 100) * (viEffectiveEnd - viStart);
     if (Math.abs(vi.currentTime - target) > 0.1) {
       vi.currentTime = target;
     }
@@ -1097,8 +1021,7 @@ function vizUpdateLoop() {
   vizUpdateChartCursor(pct);
   vizUpdatePhaseLabel(pct);
 
-  const frameDur = vizFrameCount > 1 ? (vEnd - vStart) / vizFrameCount : 0.033;
-  if (v.currentTime >= vEnd - frameDur) {
+  if (v.currentTime >= effectiveEnd) {
     vizStopPlay();
     return;
   }
@@ -1111,8 +1034,10 @@ function vizUpdateLoop() {
 function vizScrub(pct) {
   const duration = vizEpEnd - vizEpStart;
   document.querySelectorAll('.viz-video').forEach(v => {
-    const vStart = parseFloat(v.dataset.epStart) || vizEpStart;
-    const vEnd = parseFloat(v.dataset.epEnd) || vizEpEnd;
+    const rawS = v.dataset.epStart;
+    const rawE = v.dataset.epEnd;
+    const vStart = (rawS !== undefined && rawS !== '') ? parseFloat(rawS) : vizEpStart;
+    const vEnd = (rawE !== undefined && rawE !== '') ? parseFloat(rawE) : vizEpEnd;
     // Subtract one frame (~1/fps) from vEnd to avoid showing next episode's first frame
     const frameDur = vizFrameCount > 1 ? (vEnd - vStart) / vizFrameCount : 0.033;
     const clampedEnd = vEnd - frameDur;
@@ -1385,8 +1310,9 @@ async function vizDrawChart(frames) {
     vizUpdatePhaseLabel(0);
   } catch(e) { console.error('Segment error:', e); }
 
-  const sampleAction = frames[0] ? frames[0].action : null;
-  const jointCount = Array.isArray(sampleAction) ? sampleAction.length : 6;
+  // Plot observation.state (matches what the video shows) instead of action (command sent, leads video)
+  const sampleState = frames[0] ? (frames[0]['observation.state'] || frames[0].action) : null;
+  const jointCount = Array.isArray(sampleState) ? sampleState.length : 6;
   const jointNames = jointCount <= VIZ_JOINTS.length ? VIZ_JOINTS.slice(0, jointCount) :
     Array.from({ length: jointCount }, (_, i) => i < VIZ_JOINTS.length ? VIZ_JOINTS[i] : `joint_${i}`);
 
@@ -1394,8 +1320,8 @@ async function vizDrawChart(frames) {
   const datasets = jointNames.map((j, ji) => ({
     label: j,
     data: frames.map(f => {
-      const a = f.action;
-      return Array.isArray(a) ? a[ji] : null;
+      const s = f['observation.state'] || f.action;
+      return Array.isArray(s) ? s[ji] : null;
     }),
     borderColor: VIZ_COLORS[ji % VIZ_COLORS.length],
     borderWidth: 1.5,
