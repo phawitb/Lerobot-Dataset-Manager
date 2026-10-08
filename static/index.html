@@ -120,6 +120,10 @@
     .edit-task-option:hover { background: #f0f4ff; }
     .edit-task-option.active { background: #e8f0fe; color: #1a73e8; font-weight: 600; }
 
+    /* ── Tooltip ── */
+    [data-tip] { position: relative; }
+    [data-tip]:hover::after { content: attr(data-tip); position: absolute; right: calc(100% + 8px); top: 50%; transform: translateY(-50%); background: #333; color: #fff; font-size: 0.72rem; font-weight: 400; padding: 5px 10px; border-radius: 6px; white-space: normal; width: max-content; max-width: 220px; z-index: 999; pointer-events: none; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+
     /* ── No dataset state ── */
     .empty-state { text-align: center; padding: 60px 24px; color: #999; }
     .empty-state .empty-icon { font-size: 3rem; margin-bottom: 12px; opacity: 0.5; }
@@ -131,7 +135,7 @@
 
 <!-- ═══════════ Top Navigation ═══════════ -->
 <div class="top-nav">
-  <span class="app-title">LeRobot Dataset Manager</span>
+  <span class="app-title" onclick="location.reload()" style="cursor:pointer">LeRobot Dataset Manager</span>
   <button class="top-nav-tab active" onclick="switchPage('dataset')">Dataset</button>
   <button class="top-nav-tab" onclick="switchPage('training')">Training</button>
   <button class="top-nav-tab" onclick="switchPage('inference')">Inference</button>
@@ -147,13 +151,13 @@
 
     <!-- Dataset selector -->
     <div class="sidebar-section">
-      <div class="sidebar-section-title">Dataset</div>
+      <div class="sidebar-section-title">Dataset <span id="vizDatasetStatus" style="font-weight:400;color:#888"></span></div>
+      <div id="vizDataDir" style="font-size:0.68rem;color:#aaa;margin-bottom:4px;word-break:break-all"></div>
       <div class="ds-select-row">
         <select id="vizDatasetSelect">
           <option value="">-- Select --</option>
         </select>
       </div>
-      <div id="vizDatasetStatus" style="font-size:0.75rem;color:#888;margin-bottom:2px"></div>
       <div id="dsManageRow" style="display:none;display:flex;gap:4px;margin-top:4px;display:none">
         <button class="btn-xs btn-ghost" onclick="vizRenameDataset()" style="flex:1">&#9998; Rename</button>
         <button class="btn-xs btn-ghost" onclick="vizShowDeleteDataset()" style="flex:1;color:#d93025;border-color:#f5c6cb">&#128465; Delete</button>
@@ -163,7 +167,6 @@
     <!-- Always-available actions -->
     <div class="sidebar-section" style="padding-top:0">
       <div style="display:flex;flex-direction:column;gap:3px">
-        <button class="sb-btn" onclick="vizShowConfig()"><span class="sb-icon">&#9881;</span> Settings</button>
         <button class="sb-btn" onclick="vizShowImport()"><span class="sb-icon">&#128229;</span> Import Dataset</button>
         <button class="sb-btn" onclick="vizShowDownloadHf()"><span class="sb-icon">&#9729;</span> Download from HF</button>
         <button class="sb-btn" onclick="vizShowCombine()"><span class="sb-icon">&#128279;</span> Combine Datasets</button>
@@ -266,9 +269,9 @@
         </div>
         <div style="padding:12px 14px;display:flex;flex-direction:column;gap:3px">
           <div class="sidebar-section-title" style="margin-bottom:4px">Process</div>
-          <button class="sb-btn" onclick="vizShowAugment()"><span class="sb-icon">&#127912;</span> Augment</button>
-          <button class="sb-btn" onclick="vizRemoveIdle()"><span class="sb-icon">&#9986;</span> Remove Idle</button>
-          <button class="sb-btn" onclick="vizShowRandomSubset()"><span class="sb-icon">&#127922;</span> Random Sample</button>
+          <button class="sb-btn" onclick="vizShowAugment()" data-tip="Multiply dataset with camera transforms, lighting, noise, and language variations"><span class="sb-icon">&#127912;</span> Augment</button>
+          <button class="sb-btn" onclick="vizRemoveIdle()" data-tip="Create a new dataset with idle frames trimmed from each episode"><span class="sb-icon">&#9986;</span> Remove Idle</button>
+          <button class="sb-btn" onclick="vizShowRandomSubset()" data-tip="Create a subset by randomly sampling N episodes"><span class="sb-icon">&#127922;</span> Random Sample</button>
 
           <div class="sidebar-section-title" style="margin-top:10px;margin-bottom:4px">Export</div>
           <button class="sb-btn" onclick="vizShowPushHf()"><span class="sb-icon">&#128640;</span> Push to HF</button>
@@ -329,11 +332,11 @@
           </div>
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
             <span style="background:#e3f2fd;color:#1a73e8;font-weight:700;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:0.75rem;flex-shrink:0">2</span>
-            <span><strong>Import & Manage</strong> — Import datasets, rename, delete, combine multiple datasets</span>
+            <span><strong>Import & Download</strong> — Import datasets from local directories, drag & drop folders, or download directly from HuggingFace Hub</span>
           </div>
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
             <span style="background:#e3f2fd;color:#1a73e8;font-weight:700;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:0.75rem;flex-shrink:0">3</span>
-            <span><strong>Visualize & Clean</strong> — Play videos, view joint trajectories, remove idle frames, delete bad episodes</span>
+            <span><strong>Visualize & Clean</strong> — Play synchronized multi-camera videos, view joint trajectories, remove idle frames, delete bad episodes</span>
           </div>
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
             <span style="background:#e3f2fd;color:#1a73e8;font-weight:700;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:0.75rem;flex-shrink:0">4</span>
@@ -341,7 +344,7 @@
           </div>
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
             <span style="background:#e3f2fd;color:#1a73e8;font-weight:700;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:0.75rem;flex-shrink:0">5</span>
-            <span><strong>Train</strong> — Push dataset to HuggingFace, then train on a GPU server using generated commands</span>
+            <span><strong>Train</strong> — Push dataset to HuggingFace, then train on a GPU server using auto-generated commands</span>
           </div>
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
             <span style="background:#e3f2fd;color:#1a73e8;font-weight:700;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:0.75rem;flex-shrink:0">6</span>
@@ -351,20 +354,46 @@
 
         <hr style="border:none;border-top:1px solid #e0e0e0;margin:20px 0">
 
+        <!-- Sidebar -->
+        <h3 style="font-size:1.05rem;font-weight:700;color:#1a73e8;margin-bottom:8px">Sidebar</h3>
+        <p style="font-size:0.86rem;color:#555;margin-bottom:8px">The sidebar is shared across all tabs and provides dataset management and processing tools.</p>
+
+        <p style="font-size:0.9rem;font-weight:700;color:#333;margin:12px 0 6px 0">Dataset</p>
+        <table style="width:100%;font-size:0.84rem;border-collapse:collapse">
+          <tr style="border-bottom:1px solid #eee"><td style="padding:6px 8px;font-weight:600;color:#333;white-space:nowrap;vertical-align:top">Dataset Selector</td><td style="padding:6px 8px;color:#555">Dropdown to select a dataset. Shows total count in parentheses. The data directory path is displayed below the heading.</td></tr>
+          <tr style="border-bottom:1px solid #eee"><td style="padding:6px 8px;font-weight:600;color:#333;white-space:nowrap;vertical-align:top">Rename</td><td style="padding:6px 8px;color:#555">Rename the selected dataset folder.</td></tr>
+          <tr><td style="padding:6px 8px;font-weight:600;color:#333;white-space:nowrap;vertical-align:top">Delete</td><td style="padding:6px 8px;color:#555">Permanently delete the selected dataset and all its files.</td></tr>
+        </table>
+
+        <p style="font-size:0.9rem;font-weight:700;color:#333;margin:12px 0 6px 0">Import & Download</p>
+        <table style="width:100%;font-size:0.84rem;border-collapse:collapse">
+          <tr style="border-bottom:1px solid #eee"><td style="padding:6px 8px;font-weight:600;color:#333;white-space:nowrap;vertical-align:top">Import Dataset</td><td style="padding:6px 8px;color:#555">Import from a local directory via file browser or drag & drop. The Import button only activates when a valid dataset folder (containing <code>meta/info.json</code>) is selected.</td></tr>
+          <tr style="border-bottom:1px solid #eee"><td style="padding:6px 8px;font-weight:600;color:#333;white-space:nowrap;vertical-align:top">Download from HF</td><td style="padding:6px 8px;color:#555">Enter your HuggingFace username to auto-list all your datasets. Click Download to fetch any dataset directly. Already-downloaded datasets show a green checkmark. Terminal log shows real-time download progress. Public datasets require no login; for private/gated datasets, run <code>huggingface-cli login</code> first.</td></tr>
+          <tr><td style="padding:6px 8px;font-weight:600;color:#333;white-space:nowrap;vertical-align:top">Combine Datasets</td><td style="padding:6px 8px;color:#555">Merge 2+ datasets into one, consolidating episodes, tasks, and videos.</td></tr>
+        </table>
+
+        <p style="font-size:0.9rem;font-weight:700;color:#333;margin:12px 0 6px 0">Process</p>
+        <table style="width:100%;font-size:0.84rem;border-collapse:collapse">
+          <tr style="border-bottom:1px solid #eee"><td style="padding:6px 8px;font-weight:600;color:#333;white-space:nowrap;vertical-align:top">Augment</td><td style="padding:6px 8px;color:#555">Multiply dataset with configurable augmentation: camera perspective/affine transforms, brightness/contrast/saturation/noise/blur, joint noise, and language paraphrasing. Preview before applying.</td></tr>
+          <tr style="border-bottom:1px solid #eee"><td style="padding:6px 8px;font-weight:600;color:#333;white-space:nowrap;vertical-align:top">Remove Idle</td><td style="padding:6px 8px;color:#555">Create a new dataset with idle frames trimmed. Choose to remove from: <strong>Start only</strong> (default), <strong>End only</strong>, or <strong>Both</strong>. Idle segments in the middle are never removed.</td></tr>
+          <tr><td style="padding:6px 8px;font-weight:600;color:#333;white-space:nowrap;vertical-align:top">Random Sample</td><td style="padding:6px 8px;color:#555">Create a subset by randomly sampling N episodes from the dataset.</td></tr>
+        </table>
+
+        <p style="font-size:0.9rem;font-weight:700;color:#333;margin:12px 0 6px 0">Export</p>
+        <table style="width:100%;font-size:0.84rem;border-collapse:collapse">
+          <tr><td style="padding:6px 8px;font-weight:600;color:#333;white-space:nowrap;vertical-align:top">Push to HF</td><td style="padding:6px 8px;color:#555">Upload dataset to HuggingFace Hub. Automatically checks login status — if authenticated, push directly with one click. Shows the CLI command with a copy button for manual use. Terminal log shows real-time upload progress.</td></tr>
+        </table>
+
+        <hr style="border:none;border-top:1px solid #e0e0e0;margin:20px 0">
+
         <!-- Tab: Dataset -->
         <h3 style="font-size:1.05rem;font-weight:700;color:#1a73e8;margin-bottom:8px">Tab: Dataset</h3>
-        <p style="font-size:0.86rem;color:#555;margin-bottom:8px">Main workspace for managing and visualizing datasets.</p>
+        <p style="font-size:0.86rem;color:#555;margin-bottom:8px">Main workspace for visualizing and editing episodes.</p>
         <table style="width:100%;font-size:0.84rem;border-collapse:collapse">
-          <tr style="border-bottom:1px solid #eee"><td style="padding:6px 8px;font-weight:600;color:#333;white-space:nowrap;vertical-align:top">Import Dataset</td><td style="padding:6px 8px;color:#555">Import from a local directory. Supports single or multiple dataset folders.</td></tr>
-          <tr style="border-bottom:1px solid #eee"><td style="padding:6px 8px;font-weight:600;color:#333;white-space:nowrap;vertical-align:top">Download from HF</td><td style="padding:6px 8px;color:#555">Download a dataset from HuggingFace Hub using <code>hf download</code>.</td></tr>
-          <tr style="border-bottom:1px solid #eee"><td style="padding:6px 8px;font-weight:600;color:#333;white-space:nowrap;vertical-align:top">Combine Datasets</td><td style="padding:6px 8px;color:#555">Merge 2+ datasets into one, consolidating episodes, tasks, and videos.</td></tr>
-          <tr style="border-bottom:1px solid #eee"><td style="padding:6px 8px;font-weight:600;color:#333;white-space:nowrap;vertical-align:top">Episode Visualizer</td><td style="padding:6px 8px;color:#555">Play synchronized camera videos (top, wrist), view joint trajectory chart, scrub through frames with real-time sync.</td></tr>
-          <tr style="border-bottom:1px solid #eee"><td style="padding:6px 8px;font-weight:600;color:#333;white-space:nowrap;vertical-align:top">Segment Editor</td><td style="padding:6px 8px;color:#555">Mark idle vs movement phases in episodes. Auto-detect or manually split/adjust segments.</td></tr>
-          <tr style="border-bottom:1px solid #eee"><td style="padding:6px 8px;font-weight:600;color:#333;white-space:nowrap;vertical-align:top">Remove Idle</td><td style="padding:6px 8px;color:#555">Create a new dataset with idle frames trimmed from start/end of each episode.</td></tr>
-          <tr style="border-bottom:1px solid #eee"><td style="padding:6px 8px;font-weight:600;color:#333;white-space:nowrap;vertical-align:top">Augment</td><td style="padding:6px 8px;color:#555">Multiply dataset with configurable augmentation: camera perspective/affine transforms, brightness/contrast/saturation/noise/blur, joint noise, and language paraphrasing. Preview before applying.</td></tr>
-          <tr style="border-bottom:1px solid #eee"><td style="padding:6px 8px;font-weight:600;color:#333;white-space:nowrap;vertical-align:top">Random Sample</td><td style="padding:6px 8px;color:#555">Create a subset by randomly sampling N episodes from the dataset.</td></tr>
-          <tr style="border-bottom:1px solid #eee"><td style="padding:6px 8px;font-weight:600;color:#333;white-space:nowrap;vertical-align:top">Push to HF</td><td style="padding:6px 8px;color:#555">Upload dataset to HuggingFace Hub using <code>hf upload</code>.</td></tr>
-          <tr><td style="padding:6px 8px;font-weight:600;color:#333;white-space:nowrap;vertical-align:top">Edit Task</td><td style="padding:6px 8px;color:#555">Assign or update task descriptions for selected episodes (used as language conditioning for VLA models).</td></tr>
+          <tr style="border-bottom:1px solid #eee"><td style="padding:6px 8px;font-weight:600;color:#333;white-space:nowrap;vertical-align:top">Episode Visualizer</td><td style="padding:6px 8px;color:#555">Play synchronized multi-camera videos (top, wrist, etc.) with joint trajectory chart. Scrub through frames with real-time sync across all video streams. For augmented datasets, original and augmented videos play side-by-side in sync.</td></tr>
+          <tr style="border-bottom:1px solid #eee"><td style="padding:6px 8px;font-weight:600;color:#333;white-space:nowrap;vertical-align:top">Segment Editor</td><td style="padding:6px 8px;color:#555">Mark idle vs movement phases in episodes. Auto-detect segments using velocity-based analysis, or manually split and adjust segment boundaries by dragging handles.</td></tr>
+          <tr style="border-bottom:1px solid #eee"><td style="padding:6px 8px;font-weight:600;color:#333;white-space:nowrap;vertical-align:top">Edit Task</td><td style="padding:6px 8px;color:#555">Assign or update task descriptions for selected episodes (used as language conditioning for VLA models like SmolVLA and pi0.5).</td></tr>
+          <tr><td style="padding:6px 8px;font-weight:600;color:#333;white-space:nowrap;vertical-align:top">Delete Episodes</td><td style="padding:6px 8px;color:#555">Select and permanently remove bad or unwanted episodes from the dataset.</td></tr>
         </table>
 
         <hr style="border:none;border-top:1px solid #e0e0e0;margin:20px 0">
@@ -373,7 +402,7 @@
         <h3 style="font-size:1.05rem;font-weight:700;color:#1a73e8;margin-bottom:8px">Tab: Training</h3>
         <p style="font-size:0.86rem;color:#555;margin-bottom:8px">Step-by-step commands for training a policy model on a GPU server.</p>
         <table style="width:100%;font-size:0.84rem;border-collapse:collapse">
-          <tr style="border-bottom:1px solid #eee"><td style="padding:6px 8px;font-weight:600;color:#333;white-space:nowrap;vertical-align:top">Setup</td><td style="padding:6px 8px;color:#555">Create conda environment, install LeRobot and dependencies (one-time setup).</td></tr>
+          <tr style="border-bottom:1px solid #eee"><td style="padding:6px 8px;font-weight:600;color:#333;white-space:nowrap;vertical-align:top">Setup</td><td style="padding:6px 8px;color:#555">Create conda environment, install LeRobot, FFmpeg, and all dependencies (one-time setup).</td></tr>
           <tr style="border-bottom:1px solid #eee"><td style="padding:6px 8px;font-weight:600;color:#333;white-space:nowrap;vertical-align:top">Download</td><td style="padding:6px 8px;color:#555">Download dataset from HuggingFace Hub to the GPU server.</td></tr>
           <tr style="border-bottom:1px solid #eee"><td style="padding:6px 8px;font-weight:600;color:#333;white-space:nowrap;vertical-align:top">Training</td><td style="padding:6px 8px;color:#555">Auto-generated <code>lerobot-train</code> command for the selected model (ACT / SmolVLA / pi0.5) with W&B logging toggle.</td></tr>
           <tr><td style="padding:6px 8px;font-weight:600;color:#333;white-space:nowrap;vertical-align:top">Tips</td><td style="padding:6px 8px;color:#555">GPU memory recommendations, batch size tuning, multi-GPU training, checkpoint management.</td></tr>
@@ -394,7 +423,7 @@
 
         <hr style="border:none;border-top:1px solid #e0e0e0;margin:20px 0">
 
-        <!-- Augmentation Detail -->
+        <!-- Data Augmentation Detail -->
         <h3 style="font-size:1.05rem;font-weight:700;color:#333;margin-bottom:8px">Data Augmentation (Detail)</h3>
         <p style="font-size:0.86rem;color:#555;margin-bottom:8px">The augmentation system multiplies your dataset by creating new episodes from existing ones with controlled variations:</p>
         <table style="width:100%;font-size:0.84rem;border-collapse:collapse">
@@ -426,6 +455,17 @@
 
         <hr style="border:none;border-top:1px solid #e0e0e0;margin:20px 0">
 
+        <!-- HuggingFace Integration -->
+        <h3 style="font-size:1.05rem;font-weight:700;color:#333;margin-bottom:8px">HuggingFace Integration</h3>
+        <p style="font-size:0.86rem;color:#555;margin-bottom:8px">The application integrates with HuggingFace Hub for dataset and model management:</p>
+        <table style="width:100%;font-size:0.84rem;border-collapse:collapse">
+          <tr style="border-bottom:1px solid #eee"><td style="padding:6px 8px;font-weight:600;color:#333;white-space:nowrap;vertical-align:top">Download</td><td style="padding:6px 8px;color:#555">Auto-list datasets by username, one-click download with real-time terminal log. No auth needed for public datasets.</td></tr>
+          <tr style="border-bottom:1px solid #eee"><td style="padding:6px 8px;font-weight:600;color:#333;white-space:nowrap;vertical-align:top">Push</td><td style="padding:6px 8px;color:#555">Upload datasets with auth status check, one-click push or manual command with copy button. Terminal log shows progress.</td></tr>
+          <tr><td style="padding:6px 8px;font-weight:600;color:#333;white-space:nowrap;vertical-align:top">Authentication</td><td style="padding:6px 8px;color:#555">Public datasets require no login. For private/gated datasets or pushing, run <code>huggingface-cli login</code> in terminal.</td></tr>
+        </table>
+
+        <hr style="border:none;border-top:1px solid #e0e0e0;margin:20px 0">
+
         <!-- fakecam_inject.py -->
         <h3 style="font-size:1.05rem;font-weight:700;color:#333;margin-bottom:8px">fakecam_inject.py</h3>
         <p style="font-size:0.86rem;color:#555;margin-bottom:8px">
@@ -444,6 +484,47 @@
           <code style="display:block;background:#f5f5f5;padding:10px 14px;border-radius:6px;font-size:0.8rem;line-height:1.6;white-space:pre">rotation, translate_x, translate_y, scale, shear
 brightness, contrast, saturation, noise, blur</code>
         </div>
+
+        <hr style="border:none;border-top:1px solid #e0e0e0;margin:20px 0">
+
+        <!-- Dataset Format -->
+        <h3 style="font-size:1.05rem;font-weight:700;color:#333;margin-bottom:8px">Dataset Format</h3>
+        <p style="font-size:0.86rem;color:#555;margin-bottom:8px">Datasets are stored in the <code>./data/</code> directory and follow the LeRobot format:</p>
+        <code style="display:block;background:#f5f5f5;padding:12px 14px;border-radius:6px;font-size:0.8rem;line-height:1.6;white-space:pre">data/
+  my_dataset/
+    meta/
+      info.json          # Dataset metadata (fps, robot_type, etc.)
+      episodes/          # Episode metadata (timestamps, lengths)
+      tasks.parquet       # Task descriptions for language conditioning
+      stats.json         # Normalization statistics
+    data/
+      chunk-000/         # Frame data (actions, states, timestamps)
+        episode_000000.parquet
+    videos/
+      observation.images.top/
+        chunk-000/
+          episode_000000.mp4
+      observation.images.wrist/
+        chunk-000/
+          episode_000000.mp4</code>
+
+        <hr style="border:none;border-top:1px solid #e0e0e0;margin:20px 0">
+
+        <!-- API Endpoints -->
+        <h3 style="font-size:1.05rem;font-weight:700;color:#333;margin-bottom:8px">API Endpoints</h3>
+        <p style="font-size:0.86rem;color:#555;margin-bottom:8px">The backend exposes a REST API at <code>http://localhost:8080</code>:</p>
+        <table style="width:100%;font-size:0.84rem;border-collapse:collapse">
+          <tr style="border-bottom:1px solid #ddd;background:#f5f5f5"><th style="padding:6px 8px;text-align:left;color:#555">Endpoint</th><th style="padding:6px 8px;text-align:left;color:#555">Description</th></tr>
+          <tr style="border-bottom:1px solid #eee"><td style="padding:6px 8px;font-family:monospace;font-size:0.78rem">GET /api/datasets</td><td style="padding:6px 8px;color:#555">List all local datasets</td></tr>
+          <tr style="border-bottom:1px solid #eee"><td style="padding:6px 8px;font-family:monospace;font-size:0.78rem">GET /api/datasets/{name}/info</td><td style="padding:6px 8px;color:#555">Get dataset metadata and tasks</td></tr>
+          <tr style="border-bottom:1px solid #eee"><td style="padding:6px 8px;font-family:monospace;font-size:0.78rem">GET /api/datasets/{name}/frames/{ep}</td><td style="padding:6px 8px;color:#555">Get frame data for an episode</td></tr>
+          <tr style="border-bottom:1px solid #eee"><td style="padding:6px 8px;font-family:monospace;font-size:0.78rem">POST /api/datasets/import</td><td style="padding:6px 8px;color:#555">Import dataset from local path</td></tr>
+          <tr style="border-bottom:1px solid #eee"><td style="padding:6px 8px;font-family:monospace;font-size:0.78rem">POST /api/datasets/combine</td><td style="padding:6px 8px;color:#555">Combine multiple datasets</td></tr>
+          <tr style="border-bottom:1px solid #eee"><td style="padding:6px 8px;font-family:monospace;font-size:0.78rem">GET /api/hf/datasets</td><td style="padding:6px 8px;color:#555">List HF datasets by username</td></tr>
+          <tr style="border-bottom:1px solid #eee"><td style="padding:6px 8px;font-family:monospace;font-size:0.78rem">POST /api/hf/download</td><td style="padding:6px 8px;color:#555">Download dataset from HF Hub</td></tr>
+          <tr style="border-bottom:1px solid #eee"><td style="padding:6px 8px;font-family:monospace;font-size:0.78rem">POST /api/hf/push</td><td style="padding:6px 8px;color:#555">Push dataset to HF Hub</td></tr>
+          <tr><td style="padding:6px 8px;font-family:monospace;font-size:0.78rem">GET /api/hf/auth-status</td><td style="padding:6px 8px;color:#555">Check HF login status</td></tr>
+        </table>
 
         <hr style="border:none;border-top:1px solid #e0e0e0;margin:20px 0">
 
@@ -574,13 +655,16 @@ function switchPage(pageId) {
 // ============================================================
 // Modal
 // ============================================================
-function closeModal() { document.getElementById('modalOverlay').classList.remove('visible'); document.querySelector('.modal').classList.remove('modal-wide'); }
+function closeModal() { document.getElementById('modalOverlay').classList.remove('visible'); document.querySelector('.modal').classList.remove('modal-wide'); if (hfDlPollTimer) { clearInterval(hfDlPollTimer); hfDlPollTimer = null; } if (hfPushPollTimer) { clearInterval(hfPushPollTimer); hfPushPollTimer = null; } }
 
 // ============================================================
 // Init
 // ============================================================
 (async function init() {
   vizRefreshDatasets();
+  fetch('/api/data-dir').then(r=>r.json()).then(d=>{
+    if(d.ok) document.getElementById('vizDataDir').textContent = d.data_dir;
+  }).catch(()=>{});
 })();
 
 // ============================================================
@@ -600,7 +684,7 @@ async function vizRefreshDatasets() {
       o.textContent = `${ds.name} (${ds.total_episodes} eps)`;
       sel.appendChild(o);
     });
-    st.textContent = `${(d.datasets || []).length} datasets`;
+    st.textContent = `(${(d.datasets || []).length})`;
   } catch(e) { st.textContent = 'Error: ' + e.message; }
 }
 
@@ -853,12 +937,12 @@ async function vizLoadEpisode() {
       const fi = String(srcEpMeta[`${camKey}/file_index`] ?? 0).padStart(3, '0');
       const srcPath = `/data/${cfg.source_dataset}/videos/${cam}/chunk-${ck}/file-${fi}.mp4`;
       const srcFrom = srcEpMeta[`${camKey}/from_timestamp`] ?? 0;
+      const srcTo = srcEpMeta[`${camKey}/to_timestamp`] ?? 0;
       vids.innerHTML += `
         <div style="display:flex;gap:12px">
           <div style="flex:1">
             <div style="font-size:0.72rem;color:#888;margin-bottom:4px">${label} <span style="color:#34a853;font-weight:600">original</span> (ep ${augEpInfo.source_ep})</div>
-            <video muted preload="auto" style="width:100%;border-radius:8px;border:2px solid #34a853;background:#000" src="${srcPath}"
-              onloadedmetadata="this.currentTime=${srcFrom}"></video>
+            <video muted preload="auto" class="viz-video" data-ep-start="${srcFrom}" data-ep-end="${srcTo}" style="width:100%;border-radius:8px;border:2px solid #34a853;background:#000" src="${srcPath}"></video>
           </div>
           <div style="flex:1">
             <div style="font-size:0.72rem;color:#888;margin-bottom:4px">${label} <span style="color:#7b1fa2;font-weight:600">augmented</span></div>
@@ -996,13 +1080,25 @@ function vizUpdateLoop() {
   const elapsed = v.currentTime - vStart;
   const pct = vDuration > 0 ? Math.min(100, Math.max(0, (elapsed / vDuration) * 100)) : 0;
 
+  // Sync all other videos to same percentage
+  for (let i = 1; i < videos.length; i++) {
+    const vi = videos[i];
+    const viStart = parseFloat(vi.dataset.epStart) || vizEpStart;
+    const viEnd = parseFloat(vi.dataset.epEnd) || vizEpEnd;
+    const target = viStart + (pct / 100) * (viEnd - viStart);
+    if (Math.abs(vi.currentTime - target) > 0.1) {
+      vi.currentTime = target;
+    }
+  }
+
   const mainDuration = vizEpEnd - vizEpStart;
   document.getElementById('vizScrubber').value = pct;
   document.getElementById('vizTimeDisplay').textContent = ((pct / 100) * mainDuration).toFixed(1) + 's';
   vizUpdateChartCursor(pct);
   vizUpdatePhaseLabel(pct);
 
-  if (v.currentTime >= vEnd - 0.05) {
+  const frameDur = vizFrameCount > 1 ? (vEnd - vStart) / vizFrameCount : 0.033;
+  if (v.currentTime >= vEnd - frameDur) {
     vizStopPlay();
     return;
   }
@@ -1017,7 +1113,10 @@ function vizScrub(pct) {
   document.querySelectorAll('.viz-video').forEach(v => {
     const vStart = parseFloat(v.dataset.epStart) || vizEpStart;
     const vEnd = parseFloat(v.dataset.epEnd) || vizEpEnd;
-    v.currentTime = vStart + (pct / 100) * (vEnd - vStart);
+    // Subtract one frame (~1/fps) from vEnd to avoid showing next episode's first frame
+    const frameDur = vizFrameCount > 1 ? (vEnd - vStart) / vizFrameCount : 0.033;
+    const clampedEnd = vEnd - frameDur;
+    v.currentTime = vStart + (pct / 100) * (clampedEnd - vStart);
   });
   document.getElementById('vizTimeDisplay').textContent = ((pct / 100) * duration).toFixed(1) + 's';
   vizUpdateChartCursor(pct);
@@ -1679,13 +1778,8 @@ function vizShowImport() {
       <div id="importFileList" style="max-height:280px;overflow-y:auto;border:1px solid #e0e0e0;border-radius:8px;background:#fafafa"></div>
     </div>
 
-    <div style="margin-bottom:12px">
-      <label class="form-label">Dataset Name (optional)</label>
-      <input type="text" id="importNameInput" class="form-input" placeholder="leave empty to use folder name">
-    </div>
-
-    <div style="display:flex;gap:10px;align-items:center">
-      <button class="btn" id="importBtn" onclick="vizDoImport()" style="background:#00897b">Import</button>
+    <div style="display:flex;gap:10px;align-items:center;margin-top:14px">
+      <button class="btn" id="importBtn" onclick="vizDoImport()" style="background:#00897b;opacity:0.4" disabled>Import</button>
       <button class="btn btn-sm btn-ghost" onclick="closeModal()">Cancel</button>
       <span id="importStatus" style="font-size:0.85rem;color:#888"></span>
     </div>
@@ -1721,6 +1815,13 @@ async function importBrowse(path) {
     curPath.textContent = d.current;
     document.getElementById('importPathInput').value = d.current;
     document.getElementById('importUpBtn').style.display = d.parent ? '' : 'none';
+    // Enable Import button if current dir is a dataset, otherwise reset
+    const importBtn = document.getElementById('importBtn');
+    if (d.is_dataset) {
+      importBtn.disabled = false; importBtn.style.opacity = '1';
+    } else {
+      importBtn.disabled = true; importBtn.style.opacity = '0.4';
+    }
 
     if (!d.entries.length) {
       fileList.innerHTML = '<div style="padding:14px;color:#999;font-size:0.85rem">No subdirectories</div>';
@@ -1747,6 +1848,8 @@ async function importBrowse(path) {
           document.getElementById('importPathInput').value = e.path;
           fileList.querySelectorAll('div').forEach(d => d.style.outline = '');
           div.style.outline = '2px solid #00897b';
+          const btn = document.getElementById('importBtn');
+          btn.disabled = false; btn.style.opacity = '1';
         } else {
           importBrowse(e.path);
         }
@@ -1784,8 +1887,11 @@ function importStartPoll(btn, st) {
       } else if (!s.running && s.progress >= 100) {
         if (st) st.style.color = '#34a853';
         clearInterval(poll);
-        if (btn) btn.disabled = false;
         vizRefreshDatasets();
+        // Hide Import/Cancel buttons, show Close
+        if (btn) btn.style.display = 'none';
+        const cancelBtn = btn?.parentElement?.querySelector('.btn-ghost');
+        if (cancelBtn) { cancelBtn.textContent = 'Close'; cancelBtn.style.display = ''; }
       }
     } catch(e) {}
   }, 500);
@@ -1793,7 +1899,7 @@ function importStartPoll(btn, st) {
 
 async function vizDoImport() {
   const path = document.getElementById('importPathInput').value.trim();
-  const name = document.getElementById('importNameInput') ? document.getElementById('importNameInput').value.trim() : '';
+  const name = '';
   const st = document.getElementById('importStatus');
   if (!path) { st.textContent = 'Enter a path'; st.style.color = '#d93025'; return; }
 
@@ -1998,123 +2104,318 @@ async function loadAppConfig() {
 }
 loadAppConfig();
 
-function vizShowConfig() {
-  const c = appConfig;
-  const body = document.getElementById('modalBody');
-  body.innerHTML = `
-    <h3 style="margin-top:0;margin-bottom:14px">Settings</h3>
-    <p style="font-size:0.82rem;color:#888;margin-bottom:14px">Used to generate CLI commands for Download, Push, Training.</p>
-    <div style="margin-bottom:10px">
-      <label class="form-label">Hugging Face Username</label>
-      <input type="text" id="cfgHfUser" class="form-input" value="${c.hf_username || ''}" placeholder="e.g. your-hf-username">
-    </div>
-    <div style="margin-bottom:14px">
-      <label class="form-label">LeRobot Path</label>
-      <input type="text" id="cfgLeroPath" class="form-input" value="${c.lerobot_path || '~/lerobot'}" placeholder="~/lerobot" style="font-family:'SF Mono','Menlo',monospace;font-size:0.82rem">
-    </div>
-    <div style="display:flex;gap:10px;align-items:center">
-      <button class="btn" onclick="saveConfig()" style="background:#555">Save</button>
-      <button class="btn btn-sm btn-ghost" onclick="closeModal()">Cancel</button>
-      <span id="cfgStatus" style="font-size:0.85rem;color:#888"></span>
-    </div>
-  `;
-  document.getElementById('modalOverlay').classList.add('visible');
-}
-
-async function saveConfig() {
-  const cfg = {
-    hf_username: document.getElementById('cfgHfUser').value.trim(),
-    lerobot_path: document.getElementById('cfgLeroPath').value.trim() || '~/lerobot',
-  };
-  const st = document.getElementById('cfgStatus');
-  try {
-    const r = await fetch('/api/config', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(cfg),
-    });
-    const d = await r.json();
-    if (d.ok) {
-      appConfig = d.config;
-      st.textContent = 'Saved!'; st.style.color = '#34a853';
-      setTimeout(closeModal, 800);
-    } else {
-      st.textContent = d.error || 'Error'; st.style.color = '#d93025';
-    }
-  } catch(e) { st.textContent = e.message; st.style.color = '#d93025'; }
-}
 
 // ============================================================
 // Command display helper
 // ============================================================
 function cmdBlock(cmd) {
-  return `<div style="position:relative;background:#1e1e1e;color:#d4d4d4;font-family:'SF Mono','Menlo','Consolas',monospace;font-size:0.78rem;line-height:1.6;padding:12px 14px;border-radius:8px;margin-bottom:10px;white-space:pre-wrap;word-break:break-all"><button onclick="navigator.clipboard.writeText(this.nextElementSibling.textContent.trim())" style="position:absolute;top:6px;right:8px;background:#444;color:#ccc;border:none;border-radius:4px;padding:2px 8px;font-size:0.68rem;cursor:pointer">Copy</button><span>${cmd}</span></div>`;
+  return `<div style="position:relative;background:#1e1e1e;color:#d4d4d4;font-family:'SF Mono','Menlo','Consolas',monospace;font-size:0.78rem;line-height:1.6;padding:12px 14px;border-radius:8px;margin-bottom:10px;white-space:pre-wrap;word-break:break-all"><button onclick="cmdCopy(this)" style="position:absolute;top:6px;right:8px;background:#444;color:#fff;border:none;border-radius:4px;padding:2px 8px;font-size:0.68rem;cursor:pointer;transition:background 0.15s">Copy</button><span>${cmd}</span></div>`;
+}
+function cmdCopy(btn) {
+  const text = btn.nextElementSibling.textContent.trim();
+  function done() {
+    btn.textContent = 'Copied!';
+  }
+  function fallback() {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.cssText = 'position:fixed;left:-9999px';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); } catch(e) {}
+    document.body.removeChild(ta);
+    done();
+  }
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done).catch(fallback);
+    } else {
+      fallback();
+    }
+  } catch(e) { fallback(); }
 }
 
 // ============================================================
-// Download from HF (command guide)
+// Download from HF (auto-list & download)
 // ============================================================
+var hfDlPollTimer = null;
+
 function vizShowDownloadHf() {
   const c = appConfig;
-  const user = c.hf_username || '&lt;HF_USERNAME&gt;';
   const body = document.getElementById('modalBody');
   body.innerHTML = `
-    <h3 style="margin-top:0;margin-bottom:8px">Download Dataset from Hugging Face</h3>
-    <p style="font-size:0.85rem;color:#666;margin-bottom:14px">Run these commands in your terminal to download a dataset.</p>
-    <div style="margin-bottom:10px">
-      <label class="form-label">Repository ID <span style="font-weight:400;color:#999;font-size:0.8rem">e.g. ${user}/my_dataset</span></label>
-      <input type="text" id="dlHfRepo" class="form-input" placeholder="${user}/dataset-name" value="${user}/" oninput="updateDlCmd()">
+    <h3 style="margin-top:0;margin-bottom:4px">Download Dataset from Hugging Face</h3>
+    <p style="font-size:0.75rem;color:#999;margin:0 0 10px 0">Public datasets require no login. For private/gated datasets, run <code style="background:#eee;padding:1px 4px;border-radius:3px;font-size:0.73rem">huggingface-cli login</code> first.</p>
+    <div style="display:flex;gap:6px;align-items:center;margin-bottom:12px">
+      <input type="text" id="hfUserInput" class="form-input" value="${c.hf_username || ''}" placeholder="HF Username" style="flex:1;font-size:0.82rem">
+      <button class="btn btn-sm" onclick="hfLoadUser()" style="padding:4px 14px;font-size:0.78rem;white-space:nowrap">Load</button>
     </div>
-    <div id="dlCmdArea">
-      <label class="form-label">Commands</label>
-      ${cmdBlock(`hf download ${user}/<dataset-name> --repo-type dataset --local-dir ./data/<dataset-name>`)}
+    <div id="hfDatasetList" style="min-height:60px;max-height:280px;overflow-y:auto">
+      ${c.hf_username ? '<div style="text-align:center;color:#999;padding:24px 0">Loading...</div>' : '<div style="color:#888;padding:12px 0;font-size:0.85rem">Enter your HF username and click Load.</div>'}
     </div>
-    <button class="btn btn-sm btn-ghost" onclick="closeModal()" style="margin-top:6px">Close</button>
+    <div id="hfTerminal" style="display:none;margin-top:10px">
+      <div style="font-size:0.75rem;color:#888;margin-bottom:4px">Terminal Log</div>
+      <div id="hfTermLog" style="background:#1e1e1e;color:#d4d4d4;font-family:'SF Mono','Menlo','Consolas',monospace;font-size:0.72rem;line-height:1.5;padding:10px 12px;border-radius:8px;max-height:180px;overflow-y:auto;white-space:pre-wrap;word-break:break-all"></div>
+    </div>
+    <button class="btn btn-sm btn-ghost" onclick="closeModal()" style="margin-top:10px">Close</button>
   `;
   document.getElementById('modalOverlay').classList.add('visible');
-
-  window.updateDlCmd = function() {
-    const repo = document.getElementById('dlHfRepo').value.trim();
-    const localName = repo.includes('/') ? repo.split('/')[1] : repo;
-    document.getElementById('dlCmdArea').innerHTML = `
-      <label class="form-label">Commands</label>
-      ${cmdBlock(`hf download ${repo || user + '/<dataset-name>'} --repo-type dataset --local-dir ./data/${localName || '<dataset-name>'}`)}
-    `;
-  };
+  if (c.hf_username) loadHfDatasets();
 }
 
+async function hfLoadUser() {
+  const username = document.getElementById('hfUserInput').value.trim();
+  if (!username) return;
+  // Save username to config
+  try {
+    const r = await fetch('/api/config', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({hf_username: username}) });
+    const d = await r.json();
+    if (d.ok) appConfig = d.config;
+  } catch(e) { /* ignore */ }
+  const container = document.getElementById('hfDatasetList');
+  if (container) container.innerHTML = '<div style="text-align:center;color:#999;padding:24px 0">Loading...</div>';
+  loadHfDatasets();
+}
+
+async function loadHfDatasets() {
+  const container = document.getElementById('hfDatasetList');
+  if (!container) return;
+  try {
+    const res = await fetch('/api/hf/datasets');
+    const data = await res.json();
+    if (!data.ok) {
+      container.innerHTML = `<div style="color:#c00;padding:12px 0;font-size:0.85rem">${data.error}</div>`;
+      return;
+    }
+    if (data.datasets.length === 0) {
+      container.innerHTML = `<div style="color:#999;padding:12px 0;font-size:0.85rem">No datasets found.</div>`;
+      return;
+    }
+    renderHfDatasets(data.datasets);
+  } catch (e) {
+    container.innerHTML = `<div style="color:#c00;padding:12px 0;font-size:0.85rem">Failed to fetch: ${e.message}</div>`;
+  }
+}
+
+function hfSafeId(repoId) { return repoId.replace(/[^a-zA-Z0-9_-]/g, '_'); }
+
+function renderHfDatasets(datasets) {
+  const container = document.getElementById('hfDatasetList');
+  if (!container) return;
+  container.innerHTML = datasets.map(ds => {
+    const sid = hfSafeId(ds.id);
+    let statusHtml = '';
+    if (ds.downloaded) statusHtml = '<span style="color:#2a7;font-weight:500">&#10003; Downloaded</span>';
+    else if (ds.downloading) statusHtml = '<span style="color:#e90">Downloading...</span>';
+
+    let actionHtml = '';
+    if (ds.downloaded) actionHtml = '<span style="color:#2a7;font-size:0.8rem;font-weight:500">Local</span>';
+    else if (ds.downloading) actionHtml = '<span style="color:#e90;font-size:0.8rem">...</span>';
+    else actionHtml = `<button class="btn btn-sm" onclick="startHfDownload('${ds.id}')" id="hfBtn_${sid}" style="padding:2px 12px;font-size:0.78rem">Download</button>`;
+
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-bottom:1px solid #eee;font-size:0.85rem" id="hfRow_${sid}">
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${ds.id}">${ds.id}</div>
+        <div id="hfStatus_${sid}" style="font-size:0.75rem;color:#888;margin-top:2px">${statusHtml}</div>
+      </div>
+      <div style="margin-left:10px;flex-shrink:0">${actionHtml}</div>
+    </div>`;
+  }).join('');
+}
+
+async function startHfDownload(repoId) {
+  const sid = hfSafeId(repoId);
+  const btn = document.getElementById('hfBtn_' + sid);
+  if (btn) { btn.disabled = true; btn.textContent = '...'; }
+  const statusEl = document.getElementById('hfStatus_' + sid);
+  if (statusEl) statusEl.innerHTML = '<span style="color:#e90">Starting...</span>';
+
+  try {
+    const res = await fetch('/api/hf/download', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({repo_id: repoId})
+    });
+    const data = await res.json();
+    if (!data.ok) {
+      if (statusEl) statusEl.innerHTML = `<span style="color:#c00">${data.error}</span>`;
+      if (btn) { btn.disabled = false; btn.textContent = 'Download'; }
+      return;
+    }
+    if (statusEl) statusEl.innerHTML = '<span style="color:#e90">Downloading...</span>';
+    // Show terminal
+    const term = document.getElementById('hfTerminal');
+    if (term) term.style.display = '';
+    const log = document.getElementById('hfTermLog');
+    if (log) log.textContent = `$ Downloading ${repoId}...\n`;
+    pollHfDownloads();
+  } catch (e) {
+    if (statusEl) statusEl.innerHTML = `<span style="color:#c00">${e.message}</span>`;
+    if (btn) { btn.disabled = false; btn.textContent = 'Download'; }
+  }
+}
+
+function pollHfDownloads() {
+  if (hfDlPollTimer) return; // already polling
+  hfDlPollTimer = setInterval(async () => {
+    try {
+      const res = await fetch('/api/hf/download/status');
+      const data = await res.json();
+      if (!data.ok) return;
+      let anyRunning = false;
+      const logEl = document.getElementById('hfTermLog');
+      for (const [repoId, st] of Object.entries(data.statuses)) {
+        const sid = hfSafeId(repoId);
+        const statusEl = document.getElementById('hfStatus_' + sid);
+        const btn = document.getElementById('hfBtn_' + sid);
+        // Update terminal log
+        if (logEl && st.log && st.log.length) {
+          logEl.textContent = st.log.join('\n');
+          logEl.scrollTop = logEl.scrollHeight;
+        }
+        if (st.running) {
+          anyRunning = true;
+          if (statusEl) statusEl.innerHTML = `<span style="color:#e90">${st.status || 'Downloading...'}</span>`;
+        } else if (st.error) {
+          if (statusEl) statusEl.innerHTML = `<span style="color:#c00">Error: ${st.error}</span>`;
+          if (btn) { btn.disabled = false; btn.textContent = 'Retry'; }
+        } else if (st.progress >= 100) {
+          if (statusEl) statusEl.innerHTML = '<span style="color:#2a7;font-weight:500">&#10003; Downloaded</span>';
+          if (btn) btn.outerHTML = '<span style="color:#2a7;font-size:0.8rem;font-weight:500">Local</span>';
+          vizRefreshDatasets();
+        }
+      }
+      if (!anyRunning) {
+        clearInterval(hfDlPollTimer);
+        hfDlPollTimer = null;
+      }
+    } catch (e) { /* ignore poll errors */ }
+  }, 2000);
+}
+
+
 // ============================================================
-// Push to HF (command guide)
+// Push to HF
 // ============================================================
-function vizShowPushHf() {
+var hfPushPollTimer = null;
+
+async function vizShowPushHf() {
   const name = vizCurrentDataset;
   if (!name) return;
   const c = appConfig;
-  const user = c.hf_username || '&lt;HF_USERNAME&gt;';
-  const repo = `${user}/${name}`;
+  const user = c.hf_username || '';
+  const repo = user ? `${user}/${name}` : name;
   const body = document.getElementById('modalBody');
   body.innerHTML = `
     <h3 style="margin-top:0;margin-bottom:8px">Push to Hugging Face</h3>
-    <p style="font-size:0.85rem;color:#666;margin-bottom:14px">Run these commands to upload <strong>${name}</strong> to HF Hub.</p>
+    <div id="pushAuthArea" style="margin-bottom:12px">
+      <div style="font-size:0.85rem;color:#999">Checking login status...</div>
+    </div>
     <div style="margin-bottom:10px">
       <label class="form-label">Repository ID</label>
-      <input type="text" id="pushHfRepo" class="form-input" value="${repo}" oninput="updatePushCmd()">
+      <input type="text" id="pushHfRepo" class="form-input" value="${repo}" oninput="updatePushCmd('${name}')">
     </div>
-    <div id="pushCmdArea">
-      <label class="form-label">Commands</label>
+    <div id="pushCmdArea" style="margin-bottom:10px">
+      <label class="form-label">Command</label>
       ${cmdBlock(`hf upload ${repo} ./data/${name} --repo-type dataset`)}
     </div>
-    <button class="btn btn-sm btn-ghost" onclick="closeModal()" style="margin-top:6px">Close</button>
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:6px">
+      <button class="btn" id="pushHfBtn" onclick="doPushHf('${name}')" style="background:#1a73e8" disabled>Push</button>
+      <button class="btn btn-sm btn-ghost" onclick="closeModal()">Cancel</button>
+      <span id="pushHfStatus" style="font-size:0.85rem;color:#888"></span>
+    </div>
+    <div id="pushTerminal" style="display:none;margin-top:10px">
+      <div style="font-size:0.75rem;color:#888;margin-bottom:4px">Terminal Log</div>
+      <div id="pushTermLog" style="background:#1e1e1e;color:#d4d4d4;font-family:'SF Mono','Menlo','Consolas',monospace;font-size:0.72rem;line-height:1.5;padding:10px 12px;border-radius:8px;max-height:180px;overflow-y:auto;white-space:pre-wrap;word-break:break-all"></div>
+    </div>
   `;
   document.getElementById('modalOverlay').classList.add('visible');
+  checkPushAuth();
+}
 
-  window.updatePushCmd = function() {
-    const r = document.getElementById('pushHfRepo').value.trim();
-    document.getElementById('pushCmdArea').innerHTML = `
-      <label class="form-label">Commands</label>
-      ${cmdBlock(`hf upload ${r} ./data/${name} --repo-type dataset`)}
-    `;
-  };
+async function checkPushAuth() {
+  const area = document.getElementById('pushAuthArea');
+  try {
+    const r = await fetch('/api/hf/auth-status');
+    const d = await r.json();
+    if (d.logged_in) {
+      area.innerHTML = `<div style="font-size:0.85rem;color:#2a7;font-weight:500">&#10003; Logged in as <strong>${d.username}</strong></div>`;
+      const btn = document.getElementById('pushHfBtn');
+      if (btn) btn.disabled = false;
+    } else {
+      area.innerHTML = `<div style="font-size:0.85rem;color:#e90">Not logged in. Run <code style="background:#eee;padding:1px 4px;border-radius:3px;font-size:0.8rem">huggingface-cli login</code> in your terminal first.</div>`;
+    }
+  } catch (e) {
+    area.innerHTML = `<div style="font-size:0.85rem;color:#c00">Failed to check auth: ${e.message}</div>`;
+  }
+}
+
+
+function updatePushCmd(datasetName) {
+  const r = document.getElementById('pushHfRepo').value.trim();
+  const area = document.getElementById('pushCmdArea');
+  if (area) area.innerHTML = `<label class="form-label">Command</label>${cmdBlock(`hf upload ${r || '<repo>'} ./data/${datasetName} --repo-type dataset`)}`;
+}
+
+async function doPushHf(datasetName) {
+  const repoId = document.getElementById('pushHfRepo').value.trim();
+  if (!repoId) return;
+  const btn = document.getElementById('pushHfBtn');
+  const st = document.getElementById('pushHfStatus');
+  btn.disabled = true;
+  st.textContent = 'Starting push...'; st.style.color = '#1a73e8';
+
+  const term = document.getElementById('pushTerminal');
+  if (term) term.style.display = '';
+  const log = document.getElementById('pushTermLog');
+  if (log) log.textContent = `$ Pushing ${datasetName} to ${repoId}...\n`;
+
+  try {
+    const r = await fetch('/api/hf/push', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({repo_id: repoId, dataset_name: datasetName})
+    });
+    const d = await r.json();
+    if (!d.ok) {
+      st.textContent = d.error; st.style.color = '#c00';
+      btn.disabled = false;
+      return;
+    }
+    st.textContent = 'Uploading...'; st.style.color = '#1a73e8';
+    pollPushStatus(repoId);
+  } catch (e) {
+    st.textContent = e.message; st.style.color = '#c00';
+    btn.disabled = false;
+  }
+}
+
+function pollPushStatus(repoId) {
+  if (hfPushPollTimer) return;
+  hfPushPollTimer = setInterval(async () => {
+    try {
+      const r = await fetch('/api/hf/push/status');
+      const d = await r.json();
+      if (!d.ok) return;
+      const st = d.statuses[repoId];
+      if (!st) return;
+      const logEl = document.getElementById('pushTermLog');
+      if (logEl && st.log && st.log.length) {
+        logEl.textContent = st.log.join('\n');
+        logEl.scrollTop = logEl.scrollHeight;
+      }
+      const statusEl = document.getElementById('pushHfStatus');
+      if (st.running) {
+        if (statusEl) { statusEl.textContent = st.status || 'Uploading...'; statusEl.style.color = '#1a73e8'; }
+      } else if (st.error) {
+        if (statusEl) { statusEl.textContent = st.error; statusEl.style.color = '#c00'; }
+        const btn = document.getElementById('pushHfBtn');
+        if (btn) { btn.disabled = false; btn.textContent = 'Retry'; }
+        clearInterval(hfPushPollTimer); hfPushPollTimer = null;
+      } else if (st.progress >= 100) {
+        if (statusEl) { statusEl.textContent = 'Pushed successfully!'; statusEl.style.color = '#2a7'; }
+        clearInterval(hfPushPollTimer); hfPushPollTimer = null;
+      }
+    } catch (e) { /* ignore */ }
+  }, 2000);
 }
 
 // ============================================================
@@ -2397,7 +2698,15 @@ function vizRemoveIdle() {
   const body = document.getElementById('modalBody');
   body.innerHTML = `
     <h3 style="margin-top:0;margin-bottom:8px">Remove Idle Frames</h3>
-    <p style="font-size:0.85rem;color:#666;margin-bottom:14px">Remove idle frames from start/end of each episode in <strong>${name}</strong>.</p>
+    <p id="removeIdleDesc" style="font-size:0.85rem;color:#666;margin-bottom:10px">Remove idle frames from the <strong>start</strong> of each episode in <strong>${name}</strong>.</p>
+    <div style="margin-bottom:12px">
+      <label class="form-label">Remove from</label>
+      <div style="display:flex;gap:16px;font-size:0.85rem;margin-top:4px" onchange="updateRemoveIdleDesc()">
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="radio" name="removeIdleMode" value="start" checked> Start only</label>
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="radio" name="removeIdleMode" value="end"> End only</label>
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="radio" name="removeIdleMode" value="both"> Both</label>
+      </div>
+    </div>
     <div style="margin-bottom:14px">
       <label class="form-label">New Dataset Name</label>
       <input type="text" id="removeIdleName" class="form-input" value="${name}_removeidle">
@@ -2413,6 +2722,19 @@ function vizRemoveIdle() {
   document.getElementById('removeIdleName').select();
 }
 
+function updateRemoveIdleDesc() {
+  const mode = document.querySelector('input[name="removeIdleMode"]:checked')?.value || 'start';
+  const name = vizCurrentDataset;
+  const desc = document.getElementById('removeIdleDesc');
+  if (!desc) return;
+  const msgs = {
+    start: `Remove idle frames from the <strong>start</strong> of each episode in <strong>${name}</strong>.`,
+    end: `Remove idle frames from the <strong>end</strong> of each episode in <strong>${name}</strong>.`,
+    both: `Remove idle frames from the <strong>start and end</strong> of each episode in <strong>${name}</strong>. Idle segments in the middle are always kept.`,
+  };
+  desc.innerHTML = msgs[mode];
+}
+
 async function doRemoveIdle() {
   const name = vizCurrentDataset;
   const newName = document.getElementById('removeIdleName').value.trim();
@@ -2423,10 +2745,11 @@ async function doRemoveIdle() {
   st.textContent = 'Processing...';
   st.style.color = '#0097a7';
   try {
+    const mode = document.querySelector('input[name="removeIdleMode"]:checked')?.value || 'start';
     const r = await fetch(`/api/datasets/${name}/remove-idle`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ new_name: newName }),
+      body: JSON.stringify({ new_name: newName, mode }),
     });
     const d = await r.json();
     if (d.ok) {

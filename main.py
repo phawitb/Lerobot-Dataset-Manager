@@ -796,10 +796,14 @@ async def browse_filesystem(path: str = "~"):
     except PermissionError:
         return {"ok": False, "error": "Permission denied"}
 
+    # Check if current directory itself is a dataset
+    current_is_dataset = (target / "meta" / "info.json").exists()
+
     return {
         "ok": True,
         "current": str(target),
         "parent": str(target.parent) if target.parent != target else None,
+        "is_dataset": current_is_dataset,
         "entries": entries,
     }
 
@@ -851,7 +855,6 @@ async def upload_dataset(
 CONFIG_PATH = ROOT / "config.json"
 DEFAULT_CONFIG = {
     "hf_username": "",
-    "lerobot_path": "~/lerobot",
 }
 
 
@@ -876,6 +879,216 @@ async def save_config(request: Request):
     cfg.update(body)
     CONFIG_PATH.write_text(json.dumps(cfg, indent=2))
     return {"ok": True, "config": cfg}
+
+
+# ---------------------------------------------------------------------------
+# HuggingFace Hub — list & download datasets
+# ---------------------------------------------------------------------------
+hf_download_status = {}  # key = repo_id, value = {running, progress, status, error}
+
+
+@app.get("/api/hf/datasets")
+async def list_hf_datasets():
+    """List datasets on HuggingFace Hub for the configured username."""
+    cfg = load_config()
+    username = cfg.get("hf_username", "").strip()
+    if not username:
+        return {"ok": False, "error": "HF username not configured. Set it in Settings."}
+
+    try:
+        from huggingface_hub import HfApi
+        api = HfApi()
+        datasets = list(api.list_datasets(author=username))
+        # Check which ones are already downloaded locally
+        local_datasets = set()
+        if DATA_DIR.exists():
+            for d in DATA_DIR.iterdir():
+                if d.is_dir() and (d / "meta" / "info.json").exists():
+                    local_datasets.add(d.name)
+
+        result = []
+        for ds in datasets:
+            # ds.id is like "username/dataset_name"
+            short_name = ds.id.split("/")[-1] if "/" in ds.id else ds.id
+            result.append({
+                "id": ds.id,
+                "name": short_name,
+                "downloaded": short_name in local_datasets,
+                "downloading": hf_download_status.get(ds.id, {}).get("running", False),
+            })
+        return {"ok": True, "datasets": result, "total": len(result)}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+@app.post("/api/hf/download")
+async def download_hf_dataset(request: Request):
+    """Download a dataset from HuggingFace Hub into ./data."""
+    body = await request.json()
+    repo_id = body.get("repo_id", "").strip()
+    if not repo_id:
+        return {"ok": False, "error": "repo_id is required"}
+
+    if hf_download_status.get(repo_id, {}).get("running"):
+        return {"ok": False, "error": "Download already in progress for this dataset"}
+
+    local_name = repo_id.split("/")[-1] if "/" in repo_id else repo_id
+    dst = DATA_DIR / local_name
+    if dst.exists() and (dst / "meta" / "info.json").exists():
+        return {"ok": False, "error": "Dataset already exists locally"}
+
+    hf_download_status[repo_id] = {"running": True, "progress": 0, "status": "Starting download...", "error": None, "log": []}
+
+    def do_download():
+        import os as _os
+        try:
+            st = hf_download_status[repo_id]
+            st["status"] = "Downloading..."
+            cmd = ["hf", "download", repo_id, "--repo-type", "dataset", "--local-dir", str(dst)]
+            st["log"].append(f"$ {' '.join(cmd)}")
+            env = {**_os.environ, "PYTHONUNBUFFERED": "1", "HF_HUB_DISABLE_PROGRESS_BARS": "0"}
+            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env)
+            buf = b""
+            while True:
+                chunk = proc.stdout.read(1)
+                if not chunk:
+                    break
+                if chunk in (b"\n", b"\r"):
+                    line = buf.decode("utf-8", errors="replace").strip()
+                    if line:
+                        # Progress lines (with \r) update the last log entry
+                        if chunk == b"\r":
+                            if st["log"] and not st["log"][-1].startswith("$"):
+                                st["log"][-1] = line
+                            else:
+                                st["log"].append(line)
+                        else:
+                            st["log"].append(line)
+                        st["status"] = line
+                    buf = b""
+                else:
+                    buf += chunk
+            # Flush remaining buffer
+            if buf:
+                line = buf.decode("utf-8", errors="replace").strip()
+                if line:
+                    st["log"].append(line)
+                    st["status"] = line
+            proc.wait(timeout=600)
+            if proc.returncode != 0:
+                st.update({"error": "Download failed (exit code {})".format(proc.returncode), "status": "Error"})
+            else:
+                st["log"].append("Done!")
+                st.update({"progress": 100, "status": "Done"})
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            st.update({"error": "Timeout (10 min)", "status": "Timeout"})
+        except Exception as e:
+            hf_download_status[repo_id].update({"error": str(e), "status": f"Error: {e}"})
+        finally:
+            hf_download_status[repo_id]["running"] = False
+
+    threading.Thread(target=do_download, daemon=True).start()
+    return {"ok": True, "message": f"Downloading {repo_id}..."}
+
+
+@app.get("/api/hf/download/status")
+async def get_hf_download_status():
+    """Get download status for all HF downloads."""
+    return {"ok": True, "statuses": hf_download_status}
+
+
+# ---------------------------------------------------------------------------
+# HuggingFace Hub — auth & push
+# ---------------------------------------------------------------------------
+@app.get("/api/hf/auth-status")
+async def hf_auth_status():
+    """Check if user is logged in to HuggingFace."""
+    try:
+        from huggingface_hub import HfApi
+        api = HfApi()
+        info = api.whoami()
+        return {"ok": True, "logged_in": True, "username": info.get("name", "")}
+    except Exception:
+        return {"ok": True, "logged_in": False, "username": ""}
+
+
+hf_push_status = {}  # key = repo_id
+
+
+@app.post("/api/hf/push")
+async def push_hf_dataset(request: Request):
+    """Push a dataset to HuggingFace Hub."""
+    body = await request.json()
+    repo_id = body.get("repo_id", "").strip()
+    dataset_name = body.get("dataset_name", "").strip()
+    if not repo_id or not dataset_name:
+        return {"ok": False, "error": "repo_id and dataset_name are required"}
+
+    src = DATA_DIR / dataset_name
+    if not src.exists() or not (src / "meta" / "info.json").exists():
+        return {"ok": False, "error": "Dataset not found locally"}
+
+    if hf_push_status.get(repo_id, {}).get("running"):
+        return {"ok": False, "error": "Push already in progress"}
+
+    hf_push_status[repo_id] = {"running": True, "progress": 0, "status": "Starting...", "error": None, "log": []}
+
+    def do_push():
+        import os as _os
+        try:
+            st = hf_push_status[repo_id]
+            cmd = ["hf", "upload", repo_id, str(src), "--repo-type", "dataset"]
+            st["log"].append(f"$ {' '.join(cmd)}")
+            st["status"] = "Uploading..."
+            env = {**_os.environ, "PYTHONUNBUFFERED": "1"}
+            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env)
+            buf = b""
+            while True:
+                chunk = proc.stdout.read(1)
+                if not chunk:
+                    break
+                if chunk in (b"\n", b"\r"):
+                    line = buf.decode("utf-8", errors="replace").strip()
+                    if line:
+                        if chunk == b"\r":
+                            if st["log"] and not st["log"][-1].startswith("$"):
+                                st["log"][-1] = line
+                            else:
+                                st["log"].append(line)
+                        else:
+                            st["log"].append(line)
+                        st["status"] = line
+                    buf = b""
+                else:
+                    buf += chunk
+            if buf:
+                line = buf.decode("utf-8", errors="replace").strip()
+                if line:
+                    st["log"].append(line)
+                    st["status"] = line
+            proc.wait(timeout=600)
+            if proc.returncode != 0:
+                st.update({"error": f"Push failed (exit code {proc.returncode})", "status": "Error"})
+            else:
+                st["log"].append("Done!")
+                st.update({"progress": 100, "status": "Done"})
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            st.update({"error": "Timeout (10 min)", "status": "Timeout"})
+        except Exception as e:
+            hf_push_status[repo_id].update({"error": str(e), "status": f"Error: {e}"})
+        finally:
+            hf_push_status[repo_id]["running"] = False
+
+    threading.Thread(target=do_push, daemon=True).start()
+    return {"ok": True, "message": f"Pushing {dataset_name} to {repo_id}..."}
+
+
+@app.get("/api/hf/push/status")
+async def get_hf_push_status():
+    """Get push status."""
+    return {"ok": True, "statuses": hf_push_status}
 
 
 # ---------------------------------------------------------------------------
@@ -951,6 +1164,7 @@ async def remove_idle_dataset(name: str, request: Request):
     """Create new dataset with idle frames removed from start/end of each episode."""
     body = await request.json()
     custom_name = body.get("new_name", "").strip().replace(" ", "-").replace("/", "-")
+    mode = body.get("mode", "start")  # "start", "end", or "both"
 
     src_dir = DATA_DIR / name
     new_name = custom_name if custom_name else name + "_removeidle"
@@ -1030,19 +1244,37 @@ async def remove_idle_dataset(name: str, request: Request):
                 # Auto-detect segments (same algorithm as frontend)
                 ep_segs = _auto_detect_segments(frames)
 
-            # Keep only movement segments
-            keep_ranges = []
-            for seg in ep_segs:
+            # Determine trim range based on mode
+            # Find first and last movement segment indices
+            first_move = None
+            last_move = None
+            for si, seg in enumerate(ep_segs):
                 if seg.get("phase") == "movement":
-                    keep_ranges.append((seg["start"], seg["end"]))
-            if keep_ranges:
-                trimmed = []
-                for s, e in keep_ranges:
-                    trimmed.extend(frames[s:e + 1])
-                total_removed += len(frames) - len(trimmed)
-            else:
+                    if first_move is None:
+                        first_move = si
+                    last_move = si
+
+            if first_move is None:
+                # No movement at all — skip episode
                 total_removed += len(frames)
                 continue
+
+            # Build keep ranges: always keep everything between first and last movement
+            # (middle idle segments are never removed)
+            if mode == "start":
+                # Remove idle before first movement only
+                trim_start = ep_segs[first_move]["start"]
+                trim_end = len(frames) - 1
+            elif mode == "end":
+                # Remove idle after last movement only
+                trim_start = 0
+                trim_end = ep_segs[last_move]["end"]
+            else:  # "both"
+                trim_start = ep_segs[first_move]["start"]
+                trim_end = ep_segs[last_move]["end"]
+
+            trimmed = frames[trim_start:trim_end + 1]
+            total_removed += len(frames) - len(trimmed)
             if not trimmed:
                 continue
 
