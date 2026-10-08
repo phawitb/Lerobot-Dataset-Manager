@@ -4,7 +4,6 @@ Web-based tool for managing, visualizing, augmenting, and preparing robot learni
 
 ![Python](https://img.shields.io/badge/Python-3.8+-blue)
 ![FastAPI](https://img.shields.io/badge/FastAPI-green)
-![License](https://img.shields.io/badge/License-MIT-yellow)
 
 ## Features
 
