@@ -2837,6 +2837,12 @@ async function vizShowAugment() {
             </div>
 
             <div style="background:#f9f9f9;border:1px solid #e0e0e0;border-radius:6px;padding:10px;margin-bottom:8px">
+              <label style="font-weight:600;font-size:0.85rem"><input type="checkbox" id="augOcclusionEnabled"> Random Occlusion</label>
+              <div style="font-size:0.75rem;color:#999;margin:2px 0 4px 18px">Cover part of the image with a black rectangle: random per episode or adjustable in Fix mode</div>
+              <div id="augOcclusionParams"></div>
+            </div>
+
+            <div style="background:#f9f9f9;border:1px solid #e0e0e0;border-radius:6px;padding:10px;margin-bottom:8px">
               <label style="font-weight:600;font-size:0.85rem"><input type="checkbox" id="augRobotEnabled" checked> Robot Noise</label>
               <div style="font-size:0.75rem;color:#999;margin:2px 0 4px 18px">Add random noise to action/state for policy robustness</div>
               <div style="padding-left:18px;margin-top:4px;font-size:0.82rem;color:#666">
@@ -2888,13 +2894,13 @@ async function vizShowAugment() {
     // Setup preview auto-update
     window._augPreviewName = name;
     window._augTotalEps = totalEps;
-    _augPreviewUpdate();
     updateAugSummary(totalEps);
     renderAugParams();
+    _augPreviewUpdate();
 
     // Listen for changes on all augment controls
     const watchIds = ['augCamEnabled','augCamPersp','augCamAffine','augCamRot',
-      'augLightEnabled','augLightBright','augLightContrast','augLightSat','augLightJitter','augLightShadow','augLightNoise','augLightBlur',
+      'augLightEnabled','augLightBright','augLightContrast','augLightSat','augLightJitter','augLightShadow','augLightNoise','augLightBlur','augOcclusionEnabled',
       'augRobotEnabled','augRobotStart','augRobotOffset','augRobotJitter',
       'augLangEnabled','augLangSyn','augLangTypo','augIntensity'];
     watchIds.forEach(id => {
@@ -2954,6 +2960,7 @@ function updateAugSummary(totalEps) {
   const techs = [];
   if (document.getElementById('augCamEnabled')?.checked) techs.push('Camera Shift');
   if (document.getElementById('augLightEnabled')?.checked) techs.push('Light & Quality');
+  if (document.getElementById('augOcclusionEnabled')?.checked) techs.push('Random Occlusion');
   if (document.getElementById('augRobotEnabled')?.checked) techs.push('Robot Noise');
   if (document.getElementById('augLangEnabled')?.checked) techs.push('Language');
 
@@ -3044,6 +3051,25 @@ function renderAugParams() {
     lightEl.innerHTML = h ? `<div style="${pstyle}">${h}</div>` : '';
   }
 
+  const occlusionEl = document.getElementById('augOcclusionParams');
+  if (occlusionEl) {
+    let h = '';
+    if (document.getElementById('augOcclusionEnabled')?.checked) {
+      if (mode === 'fix') {
+        const saved = id => document.getElementById(id)?.value;
+        h += sld('afOccX', 'Position X', 0, 100, 1, saved('afOccX') ?? 40, '%');
+        h += sld('afOccY', 'Position Y', 0, 100, 1, saved('afOccY') ?? 40, '%');
+        h += sld('afOccW', 'Width', 1, 100, 1, saved('afOccW') ?? 20, '%');
+        h += sld('afOccH', 'Height', 1, 100, 1, saved('afOccH') ?? 20, '%');
+        h += '<div>Position is measured from the top-left corner. The rectangle shifts inward at image edges to keep its full size.</div>';
+      } else {
+        h += rng('Width / height', (10*s).toFixed(1), (30*s).toFixed(1), '% of image');
+        h += '<div>Random position and size per episode; stays fixed throughout the clip.</div>';
+      }
+    }
+    occlusionEl.innerHTML = h ? `<div style="${pstyle}">${h}</div>` : '';
+  }
+
   // Robot
   const robotEl = document.getElementById('augRobotParams');
   if (robotEl) {
@@ -3074,7 +3100,7 @@ function getFixedParams() {
   const rv = id => { const el = document.getElementById(id); return el ? parseFloat(el.value) : null; };
   return {
     camera: { persp_mag: rv('afPersp'), tx: rv('afTx'), ty: rv('afTy'), shear: rv('afShear'), scale: rv('afScale'), angle: rv('afAngle') },
-    light: { brightness: rv('afBright'), contrast: rv('afContrast'), saturation: rv('afSat'), hue: rv('afHue'), sat_off: rv('afSatOff'), shadow_a: rv('afShadowA'), noise_s: rv('afNoiseS'), blur_s: rv('afBlurS') },
+    light: { brightness: rv('afBright'), contrast: rv('afContrast'), saturation: rv('afSat'), hue: rv('afHue'), sat_off: rv('afSatOff'), shadow_a: rv('afShadowA'), noise_s: rv('afNoiseS'), blur_s: rv('afBlurS'), occlusion: document.getElementById('augOcclusionEnabled')?.checked ? [rv('afOccX') / 100, rv('afOccY') / 100, rv('afOccW') / 100, rv('afOccH') / 100] : null },
     robot: { trim: rv('afTrim'), offset_sigma: rv('afOffsetS'), jitter_s: rv('afJitterS') },
   };
 }
@@ -3095,6 +3121,7 @@ async function _augPreviewUpdate() {
 
   const intensity = parseInt(document.getElementById('augIntensity')?.value || 3);
   const techniques = {
+    occlusion: { enabled: document.getElementById('augOcclusionEnabled')?.checked },
     camera: {
       enabled: document.getElementById('augCamEnabled')?.checked,
       perspective: document.getElementById('augCamPersp')?.checked,
@@ -3153,6 +3180,7 @@ async function doAugment(name) {
   if (!newName) { alert('Enter a dataset name'); return; }
 
   const techniques = {
+    occlusion: { enabled: document.getElementById('augOcclusionEnabled')?.checked },
     camera_shift: {
       enabled: document.getElementById('augCamEnabled').checked,
       perspective: document.getElementById('augCamPersp').checked,

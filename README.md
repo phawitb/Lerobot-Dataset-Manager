@@ -185,6 +185,7 @@ The augmentation system multiplies your dataset by creating new episodes from ex
 | **Light & Quality** | Brightness / Contrast / Saturation | Simulate different lighting conditions |
 | | Color Jitter / Shadow | Random color shifts and directional shadow overlay |
 | | Noise / Blur | Gaussian noise and motion blur for image quality variation |
+| **Random Occlusion** | Black rectangle | Black rectangle with random position and size per augmented episode, held steady throughout the clip. Width and height each range from 10–30% at Medium intensity, scaled by Intensity. Fix mode provides X/Y position and width/height sliders with live Preview; the rectangle shifts inward at image edges to preserve its size. |
 | **Robot Noise** | Start Trim | Random trim of initial idle frames |
 | | Joint Offset / Jitter | Small random perturbations to action and state trajectories |
 | **Language** | Paraphrase / Typos | Generate task text variations for VLA language conditioning robustness |

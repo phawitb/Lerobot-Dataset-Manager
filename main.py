@@ -1592,6 +1592,18 @@ def _augp_camera(opts, intensity=3, fixed=None):
 def _augp_light(opts, intensity=3, fixed=None):
     s = _INTENSITY_SCALE.get(intensity, 1.0)
     p = {}
+    if opts.get("occlusion"):
+        # Normalized coordinates work for both preview and full-size videos.
+        if fixed and fixed.get("occlusion") is not None:
+            x, y, width, height = map(float, fixed["occlusion"])
+            width, height = min(1.0, max(0.01, width)), min(1.0, max(0.01, height))
+            p["occlusion"] = [min(max(0.0, x), 1 - width),
+                              min(max(0.0, y), 1 - height), width, height]
+        else:
+            width = random.uniform(0.10 * s, 0.30 * s)
+            height = random.uniform(0.10 * s, 0.30 * s)
+            p["occlusion"] = [random.uniform(0, 1 - width),
+                              random.uniform(0, 1 - height), width, height]
     if fixed:
         if opts.get("brightness") and fixed.get("brightness") is not None:
             p["brightness"] = float(fixed["brightness"])
@@ -1601,8 +1613,8 @@ def _augp_light(opts, intensity=3, fixed=None):
             p["saturation"] = float(fixed["saturation"])
         if opts.get("color_jitter") and fixed.get("hue") is not None:
             p["hue"] = int(fixed["hue"])
-            p["sat_off"] = int(fixed.get("sat_off", 0))
-            p["val_off"] = int(fixed.get("val_off", 0))
+            p["sat_off"] = int(fixed.get("sat_off") or 0)
+            p["val_off"] = int(fixed.get("val_off") or 0)
         if opts.get("shadow") and fixed.get("shadow_a") is not None:
             p["shadow_dir"] = fixed.get("shadow_dir", "left")
             p["shadow_a"] = float(fixed["shadow_a"])
@@ -1749,6 +1761,13 @@ def _aug_frame(frame, cam_p, light_p):
         if "blur_k" in light_p:
             ff = cv2.GaussianBlur(ff, (light_p["blur_k"], light_p["blur_k"]), light_p["blur_s"])
         f = ff
+    if light_p and "occlusion" in light_p:
+        h, w = f.shape[:2]
+        x, y, width, height = light_p["occlusion"]
+        rw, rh = max(1, round(width * w)), max(1, round(height * h))
+        x0, y0 = min(round(x * w), w - rw), min(round(y * h), h - rh)
+        f = f.copy()
+        f[y0:y0 + rh, x0:x0 + rw] = 0
     return f
 
 
@@ -1935,6 +1954,8 @@ def _run_augmentation(src_name, new_name, target_episodes, techniques, intensity
 
         cam_opts = techniques.get("camera_shift", {})
         light_opts = techniques.get("light_quality", {})
+        if techniques.get("occlusion", {}).get("enabled"):
+            light_opts = {**(light_opts if light_opts.get("enabled") else {}), "enabled": True, "occlusion": True}
         robot_opts = techniques.get("robot_noise", {})
         lang_opts = techniques.get("language", {})
         cam_fixed = fixed_params.get("camera") if fixed_params else None
@@ -2177,6 +2198,8 @@ async def augment_preview(name: str, request: Request):
 
     cam_opts = techniques.get("camera", {})
     light_opts = techniques.get("light", {})
+    if techniques.get("occlusion", {}).get("enabled"):
+        light_opts = {**(light_opts if light_opts.get("enabled") else {}), "enabled": True, "occlusion": True}
     mode = body.get("mode", "random")
     fixed_params = body.get("fixed_params") if mode == "fix" else None
     cam_fixed = fixed_params.get("camera") if fixed_params else None
